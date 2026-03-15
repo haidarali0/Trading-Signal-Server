@@ -1,0 +1,8 @@
+requests
+pandas
+numpy
+mplfinance
+matplotlib
+ta
+openai
+json_repair

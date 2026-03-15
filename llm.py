@@ -34,14 +34,24 @@ def build_llm_market_input(
             "symbol": symbol,
         },
 
-        "price_history": {
-            "open": last_n(candles["open"], n),
-            "high": last_n(candles["high"], n),
-            "low": last_n(candles["low"], n),
-            "close": last_n(candles["close"], n),
-            "volume": last_n(candles["volume"], n),
-            "time" : last_n(candles['time'],n)
+    "price_history" : [
+        {
+            "time": t,
+            "open": o,
+            "high": h,
+            "low": l,
+            "close": c,
+            "volume": v
         }
+        for t, o, h, l, c, v in zip(
+            last_n(candles["time"], n),
+            last_n(candles["open"], n),
+            last_n(candles["high"], n),
+            last_n(candles["low"], n),
+            last_n(candles["close"], n),
+            last_n(candles["volume"], n)
+        )
+    ]
     }
     if snapshot is not None:
         snapshot = {k: float(v) for k, v in snapshot.items()}
@@ -63,17 +73,17 @@ def build_llm_market_input(
 
     # indicators history
     if indicators is not None:
-            data["indicators"] = {
-            col: last_n(indicators[col], n)
-            for col in indicators.columns
-        }
+        for i in range(n):
+            row = indicators.iloc[-n + i]
+            for col_name, value in row.items():
+               data["price_history"][i][col_name] = value
     # multi timeframe
     if higher_tf is not None:
         data['market']['current_time_frame'] = time_frame
         data["higher_timeframes"] = {}
 
         for tf, df in higher_tf.items():
-            data["higher_timeframes"][tf] = build_llm_market_input(symbol=symbol, time_frame=tf, candles=df['candles'], n=n//2)
+            data["higher_timeframes"][tf] = json.loads(build_llm_market_input(symbol=symbol, time_frame=tf, candles=df['candles'], n=n//2))
     return json.dumps(data, indent=2)
 
 def inference(info):

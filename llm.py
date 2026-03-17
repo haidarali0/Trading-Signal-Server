@@ -14,7 +14,7 @@ def to_float(v):
 
 def last_n(series, n):
     """Return last n values as clean list"""
-    return [to_float(v) for v in series.tail(n).tolist()]
+    return [to_float(v) for v in series.tail(n).tolist()][::-1]
 
 
 def build_llm_market_input(
@@ -74,7 +74,7 @@ def build_llm_market_input(
     # indicators history
     if indicators is not None:
         for i in range(n):
-            row = indicators.iloc[-n + i]
+            row = indicators.iloc[len(indicators)-1-i]
             for col_name, value in row.items():
                data["price_history"][i][col_name] = value
     # multi timeframe
@@ -86,83 +86,39 @@ def build_llm_market_input(
             data["higher_timeframes"][tf] = json.loads(build_llm_market_input(symbol=symbol, time_frame=tf, candles=df['candles'], n=n//2))
     return json.dumps(data, indent=2)
 
-def inference(info):
+def inference(info, symbol, time_frame):
     client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=API,
     )
-    prompt = """You are a professional quantitative market analyst specializing in short-term cryptocurrency price dynamics.
+    prompt = f"""This is real-time data for {symbol} on the {time_frame} timeframe.
+I want a full technical analysis based on the latest candles, including key indicators such as EMA, RSI, MACD, Bollinger Bands, and Volume.
 
-            Your task is to analyze structured market data and estimate the probability that the current price trend will continue upward or downward before reversing.
+Please also take into consideration Fibonacci retracement levels, market structure, and any other relevant technical factors.
 
-            Focus on short-term trend continuation.
+Based on this analysis, provide the most probable scenario for short-term scalping, including a price prediction for the next 4 hours
 
-            You must evaluate the following factors when analyzing the data:
+Market Data: {info}
 
-            * Price momentum and recent candle structure
-            * Trend alignment (EMA / SMA relationships)
-            * Momentum indicators (RSI, MACD, Stochastic)
-            * Volatility context (ATR, Bollinger Bands)
-            * Market microstructure (orderbook imbalance, spread)
-            * Trade flow (buy vs sell pressure)
-            * Volume behavior
-            * Multi-indicator confirmation or divergence
+please only return json foramt repsonse with the following structure:
+{{
 
-            Your goal is NOT to predict an exact future price.
-            Instead estimate the probability that price will reach certain percentage movements **before the trend reverses**.
+    "analysis": "Your detailed technical analysis here",
+    "probable_scenario": "Your most probable scenario for short-term scalping here",
+    "predicted_price": "Your predicted price here"
 
-            Estimate the probability for the following movements:
-
-            Upward continuation:
-
-            * +1%
-            * +5%
-            * +10%
-
-            Downward continuation:
-
-            * −1%
-            * −5%
-            * −10%
-
-            Rules:
-
-            1. Probabilities must be numbers between **0 and 1**.
-            2. Base your reasoning only on the provided market data.
-            3. Consider trend strength, volatility regime, and indicator alignment.
-            4. If indicators conflict, probabilities should be closer to neutral.
-            5. If strong trend confirmation exists, larger targets may still have meaningful probability.
-            6. Output must be valid JSON only.
-            7. Do not include any text outside JSON.
-
-            Output format (strict):
- 
-            {
-            "traget_pair": "crypto_pair",
-            "target_timeframe": "4h",
-            "upward_probabilities": {
-            "1_percent": number,
-            "5_percent": number,
-            "10_percent": number
-            },
-            "downward_probabilities": {
-            "1_percent": number,    
-            "5_percent": number,
-            "10_percent": number,
-            },
-            "analysis": "short explanation summarizing the reasoning behind the probabilities"
-            }
-
-            Market Data: <info>
-
-            """
+}}
+"""
     # First API call with reasoning
+    print(prompt[:100])
+    print(prompt[-100:])
+    print("Sending request to LLM...")
     response = client.chat.completions.create(
-    model="anthropic/claude-opus-4.6",
+    model="anthropic/claude-opus-4.6",#"deepseek/deepseek-chat-v3-0324", #"minimax/minimax-m2.5",
     messages=[
             {
                 "role": "user",
-                "content":prompt.replace("<info>",info)
+                "content":prompt
             }
             ],
     extra_body={"reasoning": {"enabled": True}}

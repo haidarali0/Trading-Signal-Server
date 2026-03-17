@@ -63,6 +63,7 @@ def get_candles(interval=None, limit=None):
     )
 
     df["time"] = pd.to_datetime(df["time"], unit="ms")
+    #df["time"] = df["time"].dt.tz_localize("Asia/Damascus")
     df["time"] = df["time"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     numeric = ["open","high","low","close","volume"]

@@ -91,30 +91,56 @@ def inference(info, symbol, time_frame):
     base_url="https://openrouter.ai/api/v1",
     api_key=API,
     )
-    prompt = f"""This is real-time data for {symbol} on the {time_frame} timeframe.
-I want a full technical analysis based on the latest candles, including key indicators such as EMA, RSI, MACD, Bollinger Bands, and Volume.
+    prompt = f"""
+You are a professional crypto scalping analyst.
 
-Please also take into consideration Fibonacci retracement levels, market structure, and any other relevant technical factors.
+Analyze the following real-time market data for {symbol} on the {time_frame} timeframe.
 
-Based on this analysis, provide the most probable scenario for short-term scalping, including a price prediction for the next 4 hours
+Use the latest candles and include:
+- EMA (trend direction)
+- RSI (momentum / overbought-oversold)
+- MACD (momentum shifts)
+- Bollinger Bands (volatility)
+- Volume (confirmation)
+- Fibonacci retracement levels
+- Market structure (support/resistance, HH/HL or LH/LL)
 
-Market Data: {info}
+IMPORTANT RULES:
+- The CURRENT PRICE in the provided data MUST be considered as the ENTRY PRICE.
+- Your prediction must be strictly short-term (within the next 12 hours).
+- Output MUST be valid JSON only (no extra text, no explanation outside JSON).
+- All numeric values must be numbers (not strings).
 
-please only return json foramt repsonse with the following structure:
+Return ONLY this JSON structure:
+
 {{
-
-    "analysis": "Your detailed technical analysis here",
-    "probable_scenario": "Your most probable scenario for short-term scalping here",
-    "predicted_price": "Your predicted price here"
-
+  "entry_price": <current_price>,
+  "scenario": "up" | "down",
+  "confidence": <float between 0 and 1>,
+  "target_price_range": {{
+    "low": <number>,
+    "high": <number>
+  }},
+  "expected_time_hours": <float>,
+  "analysis": {{
+    very short explanation
+  }}
 }}
+
+STRICT CONSTRAINTS:
+- confidence must be between 0 and 1
+- expected_time_hours must be > 0 and <= 12
+- target_price_range must be realistic (tight range for short-term trading)
+- scenario must be ONLY "up" or "down"
+- Do NOT include null values
+- Do NOT include any text outside JSON
+
+Market Data:
+{info}
 """
-    # First API call with reasoning
-    print(prompt[:100])
-    print(prompt[-100:])
     print("Sending request to LLM...")
     response = client.chat.completions.create(
-    model="anthropic/claude-opus-4.6",#"deepseek/deepseek-chat-v3-0324", #"minimax/minimax-m2.5",
+    model="google/gemini-2.5-flash-lite-preview-09-2025",#anthropic/claude-opus-4.6",#"deepseek/deepseek-chat-v3-0324", #"minimax/minimax-m2.5",
     messages=[
             {
                 "role": "user",

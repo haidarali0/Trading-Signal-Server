@@ -12,20 +12,19 @@ from getter import get_candles, get_market_snapshot, Config
 import json
 # === TELEGRAM BOT INFO ===
 BOT_TOKEN = "8663098456:AAG3kZt8GT5m_xZmYhGxhSZ1QadS-6ov3V4"
-CHAT_ID = "1028815240"
+CHAT_ID = "-1003520393965"
 # === SETTINGS ===
 SYMBOL = "DOGEUSDT"
 INTERVAL = "4h"
 LIMIT = 400
 SEND_VALUES = 30
 
-
 # ============================
 # SEND TEXT MESSAGE TO TELEGRAM
 # ============================
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": msg}
+    payload = {"chat_id": CHAT_ID, "text": msg, "parse_mode": "HTML",  "disable_web_page_preview": True}
 
     try:
         response = requests.post(url, json=payload, timeout=10)
@@ -171,12 +170,43 @@ def plot_chart(df):
 # ============================
 # MAIN LOOP
 # ============================
-while True:
-    Config.SYMBOL = "SOLUSDT"
+
+def format_minimal_pro(result: dict) -> str:
+    scenario = result["scenario"].upper()
+    confidence = round(result["confidence"], 2)
+
+    # 🎨 Signal strength
+    if confidence >= 0.75:
+        emoji = "🟢"
+    elif confidence >= 0.6:
+        emoji = "🟡"
+    else:
+        emoji = "🔴"
+
+    entry = result["entry_price"]
+    low = result["target_price_range"]["low"]
+    high = result["target_price_range"]["high"]
+    time_h = result["expected_time_hours"]
+
+    return f"""
+**{result['Symbol']}**
+{emoji} *{scenario}* | Conf: *{confidence}*
+━━━━━━━━━━━━━━━━━━
+⏬ Entry point : {entry}
+💰 Expected Price: ~ {high}
+⏱ Expected Time: {time_h}h
+⏫ Gain Ratio : ~ {round(gain_ratio)} %
+━━━━━━━━━━━━━━━━━━
+🧠 {result['analysis']}
+"""
+for ss in ["XRPUSDT", "DOGEUSDT", "SOLUSDT", "ZENUSDT", "MNTUSDT"]:
+    print("====================================")
+    print(f"analysis {ss}")
+    Config.SYMBOL = ss
     Config.LIMIT =300
-    Config.INTERVAL = "30m"
+    Config.INTERVAL = "1h"
     basic_interval = Config.INTERVAL
-    Config.HIGHER_TIMEFRAMES = ["1h"]
+    Config.HIGHER_TIMEFRAMES = ["4h"]
     df = get_candles()
     indicators = calculate_indicators(df)
     snapshot = get_market_snapshot(df)
@@ -186,15 +216,19 @@ while True:
          df_i = get_candles()
          #indicators = calculate_indicators(df)
          extra_data[Config.INTERVAL] = {"candles": df_i}
-    market_info = build_llm_market_input(Config.SYMBOL, basic_interval, df, snapshot, n=100, indicators=indicators, higher_tf=extra_data)
+    market_info = build_llm_market_input(Config.SYMBOL, basic_interval, df, snapshot, n=20, indicators=indicators, higher_tf=extra_data)
     with open("request.json", "w") as f:
         json.dump(json.loads(market_info), f, indent=2)
         print("request has been saved !!!")
     res = inference(market_info, Config.SYMBOL, basic_interval)
-    send_telegram(res)
-    break
-    # chart_path = plot_chart(df)
-    # send_telegram_image(chart_path)
-
-    # print("Sent to Telegram.")
-    # time.sleep(60)
+    if res['scenario'].lower().strip() == "up":
+         gain_ratio = (res['target_price_range']["high"] - res['entry_price'])/res['entry_price'] *100
+    else:
+         gain_ratio = (res['entry_price'] - res['target_price_range']["low"])/res['entry_price'] *100
+    res['gain_ratio'] = gain_ratio
+    if res['confidence'] >= 0.6 and res["gain_ratio"] >= 1: 
+      res['Symbol'] = Config.SYMBOL
+      msg = format_minimal_pro(res)
+      send_telegram(msg)
+    else:
+      print(res)

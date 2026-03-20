@@ -2,20 +2,20 @@ import json
 import requests
 from typing import Dict, Any, List
 
-from llm import build_llm_market_input, inference
-from getter import get_candles, get_market_snapshot, Config
-from plot import plot_data
+from engine.llm import build_llm_market_input, inference
+from crypto_data.getter import get_candles, get_market_snapshot, Config
+from engine.plot import plot_data
 
-from indicators import calculate_indicators
+from crypto_data.indicators import calculate_indicators
 
 import html
 
 # === TELEGRAM BOT INFO ===
 BOT_TOKEN = "8663098456:AAG3kZt8GT5m_xZmYhGxhSZ1QadS-6ov3V4"
-CHAT_ID ="-1003520393965" # "1028815240"  
+CHAT_ID =-1003520393965#"-1003520393965" # "1028815240"  
 
 # === SETTINGS ===
-SYMBOLS = ["BNBUSDT", "ZECUSDT", "ETHUSDT", "PEPEUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT", "BTCUSDT"]
+SYMBOLS = ["BTCUSDT", "BNBUSDT", "ZECUSDT", "ETHUSDT", "PEPEUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT"]
 LIMIT = 400
 INTERVAL = "1h"
 SEND_VALUES = 30
@@ -108,7 +108,7 @@ def run_analysis(symbols: List[str]) -> None:
         )
 
         # Save request for reference
-        with open("request.json", "w") as f:
+        with open("cache/request.json", "w") as f:
             json.dump(json.loads(market_info), f, indent=2)
             print("✔ Request saved!")
 

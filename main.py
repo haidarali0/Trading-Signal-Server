@@ -24,7 +24,7 @@ HIGHER_TIMEFRAMES = ["4h"]
 
 # ============================
 # TELEGRAM FUNCTIONS
-def send_telegram_message(msg: str, image_path: str = "chart.png") -> None:
+def send_telegram_message(msg: str, image_path: str = "cache/chart.png") -> None:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     with open(image_path, "rb") as img:
         payload = {"chat_id": CHAT_ID, "caption": msg, "parse_mode": "HTML"}
@@ -43,37 +43,104 @@ def format_minimal_pro(result: dict) -> str:
     entry = html.escape(str(result["entry_price"]))
     target = html.escape(str(result["target_price"]))
     time_h = html.escape(str(result["expected_time_hours"]))
-    gain_ratio = round(result['gain_ratio'], 2)
+    gain_ratio = f"{float(result['gain_pct']):.2f}"
     analysis = html.escape(result['analysis'])
+    if "stop_loss_price" in result:
+        stop_loss = f"{float(result['stop_loss_price']):.2f}"
+        stop_ratio = f"{float(result['loss_pct']):.2f}"
+        rr = f"{float(result['rr']):.2f}"
+    else:
+        stop_loss = "-----"
+        rr = "------"
 
     emoji = "🟢" if confidence >= 0.75 else "🟡" if confidence >= 0.6 else "🔴"
 
     return f"""
-<b>{html.escape(result['Symbol'])}</b>
-{emoji} <b>{scenario}</b> | Conf: <b>{confidence}</b>
+<b>📊 {html.escape(result['Symbol'])}</b>
+{emoji} <b>{scenario.upper()}</b> | Confidence: <b>{confidence}</b>
+
 ━━━━━━━━━━━━━━━━━━
-⏬ Entry point : {entry}
-💰 Expected Price: ~ <b>{target}</b>
-⏱ Expected Time: {time_h}h
-⏫ Gain Ratio : ~ {gain_ratio} %
+📍 <b>Trade Setup</b>
+• Entry: <b>{entry}</b>
+• Target: <b>{target}</b>
+• Stop Loss: <b>{stop_loss}</b>
+
 ━━━━━━━━━━━━━━━━━━
-🧠 {analysis}
+📈 <b>Performance</b>
+• Gain: <b>{gain_ratio}%</b>
+• Loss: <b>{stop_ratio}%</b>
+• Gain-Loss Ratio: <b>{rr}</b>
+
+━━━━━━━━━━━━━━━━━━
+⏱ <b>Time Horizon</b>
+• Expected: <b>{time_h}h</b>
+
+━━━━━━━━━━━━━━━━━━
+🧠 <b>Analysis</b>
+{analysis}
 """
 
 # ============================
 # CALCULATE GAIN RATIO
 # ============================
-def calculate_gain_ratio(res: Dict[str, Any]) -> float:
-    """Calculate gain ratio based on scenario direction."""
-    if res['scenario'].lower().strip() == "up":
-        diff = res['target_price'] - res['entry_price']
+from typing import Dict, Any
+
+def calculate_ratios(res: Dict[str, Any]) -> Dict[str, float]:
+    """Calculate gain %, and optionally loss % and risk-reward ratio."""
+
+    scenario = res.get('scenario', '').lower().strip()
+
+    if scenario == "no_trade":
+        return {
+            "gain_pct": 0.0
+        }
+
+    entry = res.get('entry_price')
+    target = res.get('target_price')
+    stop = res.get('stop_loss_price')  # may be missing
+
+    if entry is None or target is None:
+        raise ValueError("[ISSUE] entry_price or target_price missing")
+
+    # --- Gain ---
+    if scenario == "up":
+        gain = target - entry
+    elif scenario == "down":
+        gain = entry - target
     else:
-        diff = res['entry_price'] - res['target_price']
+        raise ValueError("Invalid scenario")
 
-    if diff <= 0:
-        raise ValueError("[ISSUE] in target price")
-    return diff / res['entry_price'] * 100
+    if gain <= 0:
+        print(res)
+        raise ValueError("[ISSUE] invalid target price")
 
+    gain_pct = (gain / entry) * 100
+
+    # --- If NO stop loss → return only gain ---
+    if stop is None:
+        return {
+            "gain_pct": gain_pct
+        }
+
+    # --- Loss ---
+    if scenario == "up":
+        loss = entry - stop
+    else:  # down
+        loss = stop - entry
+
+    if loss <= 0:
+        print(res)
+        print(11111111)
+        raise ValueError("[ISSUE] invalid stop loss price")
+
+    loss_pct = (loss / entry) * 100
+    rr = gain / loss
+
+    return {
+        "gain_pct": gain_pct,
+        "loss_pct": loss_pct,
+        "rr": rr
+    }
 
 # ============================
 # MAIN LOOP
@@ -114,18 +181,18 @@ def run_analysis(symbols: List[str]) -> None:
 
         # LLM inference
         res = inference(market_info, Config.SYMBOL, basic_interval)
-        plot_data(res['target_price'], res['expected_time_hours'], basic_interval, symbol)
-        print("✔ Chart image saved!")
         try:
-            res['gain_ratio'] = calculate_gain_ratio(res)
+            res |= calculate_ratios(res)
         except ValueError as e:
             print("===========================")
             print(e)
             continue
-
         # Send Telegram if signal strong enough
-        if res['confidence'] >= 0.6 and res["gain_ratio"] >= 1:
+        if res['scenario'] != "no_trade" and res['confidence'] >= 0.6 and res["gain_pct"] >= 1:
+            print(res)
             res['Symbol'] = Config.SYMBOL
+            plot_data(res['target_price'], res["stop_loss_price"], res['expected_time_hours'], basic_interval, symbol)
+            print("✔ Chart image saved!")
             msg = format_minimal_pro(res)
             send_telegram_message(msg)
         else:

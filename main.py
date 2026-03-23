@@ -61,7 +61,7 @@ def format_minimal_pro(result: dict) -> str:
 
 ━━━━━━━━━━━━━━━━━━
 ⏱ <b>Time Horizon</b>
-• Expected: <b>{time_h}h</b>
+• Expected: Up to <b>{time_h}h</b>
 
 ━━━━━━━━━━━━━━━━━━
 🧠 <b>Analysis</b>
@@ -85,7 +85,7 @@ def calculate_ratios(res: Dict[str, Any]) -> Dict[str, float]:
 
     entry = res.get('entry_price')
     target = res.get('target_price')
-    stop = res.get('stop_loss_price')  # may be missing
+    stop = res.get('stop_loss_price') 
 
     if entry is None or target is None:
         raise ValueError("[ISSUE] entry_price or target_price missing")
@@ -138,7 +138,7 @@ BOT_TOKEN = "8663098456:AAG3kZt8GT5m_xZmYhGxhSZ1QadS-6ov3V4"
 CHAT_ID =1028815240#"-1003520393965" # "1028815240"  
 
 # === SETTINGS ===
-SYMBOLS = ["BTCUSDT", "BNBUSDT", "ZECUSDT", "ETHUSDT", "PEPEUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT"]
+SYMBOLS = ["BTCUSDT", "BNBUSDT", "ZECUSDT", "ETHUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT"]
 
 
 
@@ -148,7 +148,7 @@ def run_analysis(symbols: List[str]) -> None:
         print("====================================")
         print(f"Analyzing {symbol}")
         Config.SYMBOL = symbol
-        Config.LIMIT = 350
+        Config.LIMIT = 250
         Config.INTERVAL = "1h"
         basic_interval = Config.INTERVAL
         Config.HIGHER_TIMEFRAMES = ["4h"]
@@ -175,7 +175,6 @@ def run_analysis(symbols: List[str]) -> None:
         with open("cache/request.json", "w") as f:
             json.dump(market_info, f, indent=2)
             print("✔ Request saved!")
-        break
         # LLM inference
         res = inference(market_info, Config.SYMBOL, basic_interval)
         try:

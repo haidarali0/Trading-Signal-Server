@@ -59,18 +59,13 @@ def build_llm_market_input(
     ]
     }
 
-    if "snapshot" in full_data:
-       data["full_market_snapshot"] = full_data["snapshot"]
-    if "funding_rate" in full_data:
-       data['funding_rate_data'] = full_data['funding_rate'].to_dict(orient="records")
-    if "fear_greedy_index" in full_data:
-       data['fear_greedy_index'] = full_data['fear_greedy_index'].to_dict(orient="records")
-
     # indicators history
     if indicators is not None:
         for i in range(n):
             row = indicators.iloc[len(indicators)-1-i]
             for col_name, value in row.items():
+               if col_name == "leq_est":
+                     print(value.tail())
                data["price_history"][i][col_name] = value
     # multi timeframe
     if higher_tf is not None and higher_tf_indicators is not None:
@@ -79,7 +74,13 @@ def build_llm_market_input(
          
         for (tf, df), (tf, ind) in zip(higher_tf.items(), higher_tf_indicators.items()):
             data["higher_timeframes"][tf] = build_llm_market_input(symbol=symbol, time_frame=tf, full_data=df, indicators=ind, n=n//2)
-   
+        
+        if "snapshot" in full_data:
+           data["full_market_snapshot"] = full_data["snapshot"]
+        if "funding_rate" in full_data:
+           data['funding_rate_data'] = full_data['funding_rate'].to_dict(orient="records")
+        if "fear_greedy_index" in full_data:
+           data['fear_greedy_index'] = full_data['fear_greedy_index'].to_dict(orient="records")
     return data
 
 def inference(info, symbol, time_frame):
@@ -91,7 +92,7 @@ def inference(info, symbol, time_frame):
     print("Sending request to LLM...")
     prompt = prompt_2.format(symbol=symbol, time_frame=time_frame, info=info)
     response = client.chat.completions.create(
-    model="google/gemini-2.5-flash-lite-preview-09-2025",#anthropic/claude-opus-4.6",#"deepseek/deepseek-chat-v3-0324", #"minimax/minimax-m2.5",
+    model="google/gemini-3-flash-preview",#"google/gemini-2.5-flash-lite-preview-09-2025",#anthropic/claude-opus-4.6",#"deepseek/deepseek-chat-v3-0324", #"minimax/minimax-m2.5",
     messages=[
             {
                 "role": "user",

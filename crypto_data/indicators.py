@@ -8,20 +8,25 @@ import pandas as pd
 # LIQUIDATION ESTIMATION
 # ==========================================
 def get_estimate_liquidations(df, oi_series, leverage=15, candles=10):
-    df = df.iloc[-candles:]
-    oi_series = oi_series.iloc[-candles:]
+    original_index = df.index
+    df = df.iloc[-candles:].copy()
+    oi_series = oi_series.iloc[-candles:].copy()
     
-    if len(df) != len(oi_series):
-        raise ValueError(f"Length mismatch: df has {len(df)} rows, oi_series has {len(oi_series)} rows.")
-    
-    if not df.index.equals(oi_series.index):
-        raise ValueError("Index mismatch: df.index and oi_series.index are not identical.")
+    if len(df) != len(oi_series) or not df.index.equals(oi_series.index):
+        raise ValueError("Data mismatch between df and oi_series")
     
     df['pct_change'] = df['close'].pct_change().fillna(0)
-    df['liq_est'] = abs(df['pct_change']) * oi_series * leverage
+    df['liq_est'] = df['pct_change'].abs() * oi_series * leverage
     
-    return df['liq_est']
-
+    liq_est = pd.DataFrame({"liq_est": df['liq_est']})
+    
+    filler_count = len(original_index) - len(liq_est)
+    if filler_count > 0:
+        filler_rows = pd.DataFrame({col: [None] * filler_count for col in liq_est.columns})
+        liq_est = pd.concat([filler_rows, liq_est], ignore_index=True)
+    
+    liq_est.index = original_index
+    return liq_est
 # ==========================================
 # TREND INDICATORS
 # ==========================================
@@ -91,13 +96,8 @@ def get_volume_indicators(df):
 def calculate_indicators(df, oi_series, leverage=15, n_for_oi=150):
     # Liquidation
     print("CALCULATING INDICATORS --------")
-    liq = get_estimate_liquidations(df, oi_series, leverage=leverage, candles=n_for_oi)
+    liq_df = get_estimate_liquidations(df, oi_series, leverage=leverage, candles=n_for_oi)
     print("1- Liquidations : Ok")
-    if isinstance(liq, pd.Series):
-        liq_df = liq.rename("Liquidations").to_frame()
-    else:
-        liq_df = pd.DataFrame({"Liquidations": liq}, index=df.index)
-    
     trend_indicators = get_trend_indicators(df)
     print("2- tread indicators : OK")
     momentum_indicators = get_momentum_indicators(df)

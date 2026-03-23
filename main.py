@@ -3,24 +3,12 @@ import requests
 from typing import Dict, Any, List
 
 from engine.llm import build_llm_market_input, inference
-from crypto_data.getter import get_candles, get_market_snapshot, Config
+from crypto_data.getter import Config, get_full_market_data_config
 from engine.plot import plot_data
 
 from crypto_data.indicators import calculate_indicators
 
 import html
-
-# === TELEGRAM BOT INFO ===
-BOT_TOKEN = "8663098456:AAG3kZt8GT5m_xZmYhGxhSZ1QadS-6ov3V4"
-CHAT_ID =-1003520393965#"-1003520393965" # "1028815240"  
-
-# === SETTINGS ===
-SYMBOLS = ["BTCUSDT", "BNBUSDT", "ZECUSDT", "ETHUSDT", "PEPEUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT"]
-LIMIT = 400
-INTERVAL = "1h"
-SEND_VALUES = 30
-HIGHER_TIMEFRAMES = ["4h"]
-
 
 # ============================
 # TELEGRAM FUNCTIONS
@@ -145,40 +133,49 @@ def calculate_ratios(res: Dict[str, Any]) -> Dict[str, float]:
 # ============================
 # MAIN LOOP
 # ============================
+# === TELEGRAM BOT INFO ===
+BOT_TOKEN = "8663098456:AAG3kZt8GT5m_xZmYhGxhSZ1QadS-6ov3V4"
+CHAT_ID =1028815240#"-1003520393965" # "1028815240"  
+
+# === SETTINGS ===
+SYMBOLS = ["BTCUSDT", "BNBUSDT", "ZECUSDT", "ETHUSDT", "PEPEUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT"]
+
+
+
+
 def run_analysis(symbols: List[str]) -> None:
     for symbol in symbols:
         print("====================================")
         print(f"Analyzing {symbol}")
         Config.SYMBOL = symbol
-        Config.LIMIT = 300
+        Config.LIMIT = 350
         Config.INTERVAL = "1h"
         basic_interval = Config.INTERVAL
-        Config.HIGHER_TIMEFRAMES = HIGHER_TIMEFRAMES
+        Config.HIGHER_TIMEFRAMES = ["4h"]
         N = 40
 
-        # Get main timeframe data
-        df = get_candles()
-        indicators = calculate_indicators(df)  # Make sure this function exists
-        snapshot = get_market_snapshot(df)
-
-        # Fetch higher timeframe candles
+        full_data = get_full_market_data_config()
+        indicators = calculate_indicators(full_data['candles'], full_data['open_interest'])
+     
         higher_tf_data = {}
+        higher_indicators = {}
         for tf in Config.HIGHER_TIMEFRAMES:
             Config.INTERVAL = tf
-            df_tf = get_candles()
-            higher_tf_data[tf] = {"candles": df_tf}
+            df_tf = get_full_market_data_config()
+            higher_tf_data[tf] = df_tf
+            higher_indicators[tf] = calculate_indicators(df_tf['candles'], df_tf['open_interest']) 
+
 
         # Prepare LLM input
         market_info = build_llm_market_input(
-            Config.SYMBOL, basic_interval, df, snapshot,
-            n=N, indicators=indicators, higher_tf=higher_tf_data
+            Config.SYMBOL, basic_interval, full_data=full_data,
+            n=N, indicators=indicators, higher_tf=higher_tf_data, higher_tf_indicators=higher_indicators
         )
 
-        # Save request for reference
         with open("cache/request.json", "w") as f:
-            json.dump(json.loads(market_info), f, indent=2)
+            json.dump(market_info, f, indent=2)
             print("✔ Request saved!")
-
+        break
         # LLM inference
         res = inference(market_info, Config.SYMBOL, basic_interval)
         try:

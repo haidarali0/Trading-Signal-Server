@@ -23,15 +23,17 @@ def last_n(series, n):
 def build_llm_market_input(
     symbol,
     time_frame,
-    candles,
-    snapshot=None,
+    full_data,
     indicators=None,
     higher_tf=None,
+    higher_tf_indicators=None,
     n=10
 ):
     """
     Build structured input for LLM using last N rows of data.
     """
+    print("BUILDING LLM MSG")
+    candles = full_data['candles']
     data = {
         "market": {
             "symbol": symbol,
@@ -56,23 +58,13 @@ def build_llm_market_input(
         )
     ]
     }
-    if snapshot is not None:
-        snapshot = {k: float(v) for k, v in snapshot.items()}
-        data['market_microstructure'] =   {
-            "spread": snapshot["spread"],
-            "orderbook_imbalance": snapshot["orderbook_imbalance"],
-            "bid_volume": snapshot["bid_volume"],
-            "ask_volume": snapshot["ask_volume"]
-        }
-        data['trade_flow'] = {
-            "buy_volume": snapshot["buy_volume"],
-            "sell_volume": snapshot["sell_volume"],
-            "buy_sell_ratio": snapshot["buy_sell_ratio"],
-            "trade_count": snapshot["trade_count"]
-        },
 
-        data["volatility"] = snapshot["volatility"],
-        data['market']["current_price"]= snapshot["price"]
+    if "snapshot" in full_data:
+       data["full_market_snapshot"] = full_data["snapshot"]
+    if "funding_rate" in full_data:
+       data['funding_rate_data'] = full_data['funding_rate'].to_dict(orient="records")
+    if "fear_greedy_index" in full_data:
+       data['fear_greedy_index'] = full_data['fear_greedy_index'].to_dict(orient="records")
 
     # indicators history
     if indicators is not None:
@@ -81,15 +73,17 @@ def build_llm_market_input(
             for col_name, value in row.items():
                data["price_history"][i][col_name] = value
     # multi timeframe
-    if higher_tf is not None:
+    if higher_tf is not None and higher_tf_indicators is not None:
         data['market']['current_time_frame'] = time_frame
         data["higher_timeframes"] = {}
-
-        for tf, df in higher_tf.items():
-            data["higher_timeframes"][tf] = json.loads(build_llm_market_input(symbol=symbol, time_frame=tf, candles=df['candles'], n=n//2))
-    return json.dumps(data, indent=2)
+         
+        for (tf, df), (tf, ind) in zip(higher_tf.items(), higher_tf_indicators.items()):
+            data["higher_timeframes"][tf] = build_llm_market_input(symbol=symbol, time_frame=tf, full_data=df, indicators=ind, n=n//2)
+   
+    return data
 
 def inference(info, symbol, time_frame):
+    print("START ANAYLSIS BY LLM")
     client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=API,

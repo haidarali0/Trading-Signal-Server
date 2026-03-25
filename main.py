@@ -24,7 +24,7 @@ HIGHER_TIMEFRAMES = ["4h"]
 
 # ============================
 # TELEGRAM FUNCTIONS
-def send_telegram_message(msg: str, image_path: str = "chart.png") -> None:
+def send_telegram_message(msg: str, image_path: str = "cache/chart.png") -> None:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     with open(image_path, "rb") as img:
         payload = {"chat_id": CHAT_ID, "caption": msg, "parse_mode": "HTML"}
@@ -124,7 +124,7 @@ def run_analysis(symbols: List[str]) -> None:
             continue
 
         # Send Telegram if signal strong enough
-        if res['confidence'] >= 0.6 and res["gain_ratio"] >= 1:
+        if res['confidence'] >= 0.65 and res["gain_ratio"] >= 1:
             res['Symbol'] = Config.SYMBOL
             msg = format_minimal_pro(res)
             send_telegram_message(msg)

@@ -34,23 +34,23 @@ def calculate_indicators(df):
     vwap = (df["close"] * df["volume"]).cumsum() / df["volume"].cumsum()
 
     indicators = pd.DataFrame({
-        "EMA20": ema20,
-        "EMA50": ema50,
-        "EMA100": ema100,
+        # "EMA20": ema20,
+        # "EMA50": ema50,
+        # "EMA100": ema100,
         "EMA200": ema200,
         "atr": atr,
         "bb_upper": bb_upper,
         "bb_middle": bb_middle,
         "bb_lower": bb_lower,
-        "vwap": vwap,
-        "macd_line": macd_line,
-        "macd_signal": signal,
+        # "vwap": vwap,
+        # "macd_line": macd_line,
+        # "macd_signal": signal,
         "macd_hist": hist,
-        "stoch_k": k,
-        "stoch_d": d,
+        # "stoch_k": k,
+        # "stoch_d": d,
         "rsi": rsi,
-        "sma20": sma20,
-        "sma50": sma50
+        # "sma20": sma20,
+        # "sma50": sma50
     })
 
     return indicators

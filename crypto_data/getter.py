@@ -208,8 +208,3 @@ def get_market_snapshot(candles):
     snapshot.update(volatility_features(candles))
 
     return snapshot
-
-
-# ==========================================
-# EXAMPLE USAGE
-# ==========================================

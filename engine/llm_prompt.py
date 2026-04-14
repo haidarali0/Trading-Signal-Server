@@ -1,4 +1,4 @@
-prompt_1 ="""
+prompt ="""
 You are an institutional-grade crypto scalping intelligence system.
 
 Your goal is NOT to follow common technical strategies.

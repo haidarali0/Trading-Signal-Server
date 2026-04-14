@@ -29,10 +29,26 @@ def plot_data(target_price, stop_loss_price, expected_time, timeframe, symbol):
     # --- Addplots ---
     apds = []
 
-    # EMAs
-    for col in  df.columns:
-        if "bb" in col or "atr" in col:
-            apds.append(mpf.make_addplot(df[col], width=1))
+    indicator_group = None
+    if any(col in df.columns for col in ["EMA20", "EMA50", "EMA100", "EMA200"]):
+        indicator_group = "EMA"
+    elif any(col in df.columns for col in ["sma20", "sma50"]):
+        indicator_group = "SMA"
+    elif any(col in df.columns for col in ["bb_upper", "bb_middle", "bb_lower"]):
+        indicator_group = "BB"
+
+    if indicator_group == "EMA":
+        for col in ["EMA20", "EMA50", "EMA100", "EMA200"]:
+            if col in df.columns:
+                apds.append(mpf.make_addplot(df[col], width=1))
+    elif indicator_group == "SMA":
+        for col in ["sma20", "sma50"]:
+            if col in df.columns:
+                apds.append(mpf.make_addplot(df[col], width=1))
+    elif indicator_group == "BB":
+        for col in ["bb_upper", "bb_middle", "bb_lower"]:
+            if col in df.columns:
+                apds.append(mpf.make_addplot(df[col], width=1))
 
     # --- Prepare series for target, stop, current ---
     full_index = df.index
@@ -69,17 +85,27 @@ def plot_data(target_price, stop_loss_price, expected_time, timeframe, symbol):
     apds.append(mpf.make_addplot(red_zone, type='line', width=10, color='red', alpha=0.1))
 
     # --- Plot ---
+    chart_title = f"{symbol} {timeframe} chart"
+    if indicator_group:
+        chart_title += f" with {indicator_group}"
+    else:
+        chart_title += ""
+
+    output_path = f"cache/{symbol}_{timeframe}_{indicator_group or 'price'}.png"
+
     fig, axlist = mpf.plot(
         df,
         type='candle',
         style='charles',
         volume=True,
         addplot=apds,
-        title=f"{symbol} Chart with timeframe {timeframe} with EMAs",
+        title=chart_title,
         ylabel="Price",
         ylabel_lower="Volume",
         figsize=(12, 8),
         returnfig=True
     )
 
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
     fig.savefig("cache/chart.png", dpi=300, bbox_inches="tight")
+    return output_path

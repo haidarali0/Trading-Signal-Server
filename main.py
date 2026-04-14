@@ -1,115 +1,120 @@
 import json
-import requests
-from typing import Dict, Any, List
+import argparse
+from typing import List
 
 from engine.llm import build_llm_market_input, inference
 from crypto_data.getter import get_candles, get_market_snapshot, Config
 from engine.plot import plot_data
-
 from crypto_data.indicators import calculate_indicators
-
-import html
-
-# === TELEGRAM BOT INFO ===
-BOT_TOKEN = "8663098456:AAG3kZt8GT5m_xZmYhGxhSZ1QadS-6ov3V4"
-CHAT_ID =1028815240#"-1003520393965" # "1028815240"  
-
-# === SETTINGS ===
-SYMBOLS = ["BTCUSDT", "BNBUSDT", "ZECUSDT", "ETHUSDT", "PEPEUSDT", "XRPUSDT", "DOGEUSDT", "SOLUSDT", "FUNUSDT", "ASTRUSDT", "ETHFIUSDT"]
-LIMIT = 400
-INTERVAL = "1h"
-SEND_VALUES = 30
-HIGHER_TIMEFRAMES = ["4h"]
+from helper.utils import send_telegram_message, calculate_ratios, format_minimal_pro
+from config import (
+    TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+    DEFAULT_SYMBOLS, DEFAULT_LIMIT, DEFAULT_INTERVAL,
+    DEFAULT_SEND_VALUES, DEFAULT_HIGHER_TIMEFRAMES,
+    DEFAULT_INDICATORS, DEFAULT_N,
+    CONFIDENCE_THRESHOLD, GAIN_RATIO_THRESHOLD
+)
 
 
-# ============================
-# TELEGRAM FUNCTIONS
-def send_telegram_message(msg: str, image_path: str = "cache/chart.png") -> None:
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    with open(image_path, "rb") as img:
-        payload = {"chat_id": CHAT_ID, "caption": msg, "parse_mode": "HTML"}
-        files = {"photo": img}
-        response = requests.post(url, data=payload, files=files, timeout=10)
-        if response.status_code == 200:
-            print("📸 Chart sent to Telegram.")
-        else:
-            print("✖ Telegram error:", response.text)
+def parse_arguments():
+    """Parse command line arguments for the trading analysis system."""
+    parser = argparse.ArgumentParser(
+        description="Trading View Analysis System - Analyze cryptocurrency markets using LLM",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python main.py                                    # Run with default symbols
+  python main.py -s BTCUSDT ETHUSDT                 # Analyze specific symbols
+  python main.py --interval 4h --limit 500          # Custom timeframe and data limit
+  python main.py --dry-run                          # Test without sending Telegram messages
+        """
+    )
 
+    parser.add_argument(
+        '-s', '--symbols',
+        nargs='+',
+        default=DEFAULT_SYMBOLS,
+        help=f'Symbols to analyze (default: {DEFAULT_SYMBOLS})'
+    )
 
+    parser.add_argument(
+        '--interval',
+        default=DEFAULT_INTERVAL,
+        help=f'Main timeframe interval (default: {DEFAULT_INTERVAL})'
+    )
 
-def format_minimal_pro(result: dict) -> str:
-    scenario = html.escape(result["scenario"].upper())
-    confidence = round(result["confidence"], 2)
-    entry = html.escape(str(result["entry_price"]))
-    target = html.escape(str(result["target_price"]))
-    stop  = html.escape(str(result["stop_loss"]))
-    time_h = html.escape(str(result["expected_time"]))
-    gain_ratio = round(result['gain_ratio'], 2)
-    loss_ratio = round(result['loss_ratio'], 2)
-    rr =  round(result['rr'], 2)
-    analysis = html.escape(result['analysis'])
+    parser.add_argument(
+        '--limit',
+        type=int,
+        default=DEFAULT_LIMIT,
+        help=f'Number of candles to fetch (default: {DEFAULT_LIMIT})'
+    )
 
-    emoji = "🟢" if confidence >= 0.75 else "🟡" if confidence >= 0.6 else "🔴"
+    parser.add_argument(
+        '--higher-timeframes',
+        nargs='+',
+        default=DEFAULT_HIGHER_TIMEFRAMES,
+        help=f'Higher timeframe intervals (default: {DEFAULT_HIGHER_TIMEFRAMES})'
+    )
 
-    return f"""
-<b>{html.escape(result['Symbol'])}</b>
-{emoji} <b>{scenario}</b> | Conf: <b>{confidence}</b>
-━━━━━━━━━━━━━━━━━━
-⏬ Entry point : {entry}
-💰 Expected Price: ~ <b>{target}</b>
-   Stop Price : ~ <b>{stop}</b>
-⏱ Expected Time: next {time_h} candles.
-⏫ Gain Ratio : ~ {gain_ratio} %
-⏫ Loss Ratio : ~ {loss_ratio} %
-⏫ RR : ~ {rr} %
-━━━━━━━━━━━━━━━━━━
-🧠 {analysis}
-"""
+    parser.add_argument(
+        '--indicators',
+        nargs='+',
+        default=DEFAULT_INDICATORS,
+        help=f'Indicator columns to include (default: {DEFAULT_INDICATORS})'
+    )
 
-# ============================
-# CALCULATE GAIN RATIO
-# ============================
-def calculate_ratios(res: Dict[str, Any]) -> Dict[str, float]:
-    """Calculate gain percentage and risk-reward ratio."""
-    if res['scenario'].lower().strip() == "up":
-        gain = res['target_price'] - res['entry_price']
-        risk = res['entry_price'] - res['stop_loss']
-    else:
-        gain = res['entry_price'] - res['target_price']
-        risk = res['stop_loss'] - res['entry_price']
+    parser.add_argument(
+        '--confidence-threshold',
+        type=float,
+        default=CONFIDENCE_THRESHOLD,
+        help=f'Minimum confidence threshold for signals (default: {CONFIDENCE_THRESHOLD})'
+    )
 
-    if gain <= 0:
-        raise ValueError("[ISSUE] in target price")
-    if risk <= 0:
-        rr = 0.0
-    else:
-        rr = gain / risk
+    parser.add_argument(
+        '--gain-ratio-threshold',
+        type=float,
+        default=GAIN_RATIO_THRESHOLD,
+        help=f'Minimum gain ratio threshold (default: {GAIN_RATIO_THRESHOLD})'
+    )
 
-    gain_pct = (gain / res['entry_price']) * 100
-    stop_pct = (risk / res['entry_price']) * 100
-    return {"gain_ratio": gain_pct, "loss_ratio": stop_pct, "rr": rr}
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Run analysis without sending Telegram messages'
+    )
+
+    parser.add_argument(
+        '--iterations',
+        type=int,
+        default=2,
+        help='Number of analysis iterations per symbol (default: 2)'
+    )
+
+    return parser.parse_args()
+
 
 # ============================
 # MAIN LOOP
 # ============================
-def run_analysis(symbols: List[str]) -> None:
+def run_analysis(symbols: List[str], args) -> None:
   llm_res = None
   crypto_res = {s:[] for s in symbols}
   try:
     for symbol in symbols:
-     for _ in range(2):
+     for _ in range(args.iterations):
         print("====================================")
         print(f"Analyzing {symbol}")
         Config.SYMBOL = symbol
-        Config.LIMIT = 300
-        Config.INTERVAL = "1h"
+        Config.LIMIT = args.limit
+        Config.INTERVAL = args.interval
         basic_interval = Config.INTERVAL
-        Config.HIGHER_TIMEFRAMES = ["4h"]
-        N = 40
+        Config.HIGHER_TIMEFRAMES = args.higher_timeframes
+        N = DEFAULT_N
 
         # Get main timeframe data
         df = get_candles()
-        indicators = calculate_indicators(df)  # Make sure this function exists
+        indicators = calculate_indicators(df, args.indicators)
         snapshot = get_market_snapshot(df)
 
         # Fetch higher timeframe candles
@@ -156,14 +161,30 @@ def run_analysis(symbols: List[str]) -> None:
             continue
 
         # Send Telegram if signal strong enough
-        if res['confidence'] >= 0.7 and res["gain_ratio"] >=1:
-            res['Symbol'] = Config.SYMBOL
-            msg = format_minimal_pro(res)
-            send_telegram_message(msg)
+        if res['confidence'] >= args.confidence_threshold and res["gain_ratio"] >= args.gain_ratio_threshold:
+            if not args.dry_run:
+                res['Symbol'] = Config.SYMBOL
+                msg = format_minimal_pro(res)
+                send_telegram_message(msg)
+                print("📤 Signal sent to Telegram!")
+            else:
+                print("📋 DRY RUN: Would send signal to Telegram")
+                print(res)
         else:
+            print("📊 Signal below thresholds:")
             print(res)
   except Exception as e:
       print(f"error {e}")
 
 if __name__ == "__main__":
-    run_analysis(SYMBOLS)
+    args = parse_arguments()
+    print("🚀 Starting Trading View Analysis System")
+    print(f"📊 Symbols: {args.symbols}")
+    print(f"⏰ Interval: {args.interval}")
+    print(f"📈 Limit: {args.limit}")
+    print(f"🧾 Indicators: {args.indicators}")
+    print(f"🔄 Iterations: {args.iterations}")
+    if args.dry_run:
+        print("🔍 DRY RUN MODE - No Telegram messages will be sent")
+    print("=" * 50)
+    run_analysis(args.symbols, args)

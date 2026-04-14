@@ -1,8 +1,18 @@
-requests
-pandas
-numpy
-mplfinance
-matplotlib
-ta
-openai
-json_repair
+# Core dependencies
+requests>=2.25.0
+pandas>=1.3.0
+numpy>=1.21.0
+
+# Data visualization
+matplotlib>=3.5.0
+mplfinance>=0.12.0
+
+# Technical analysis
+ta>=0.10.0
+
+# LLM and AI
+openai>=1.0.0
+json-repair>=0.5.0
+
+# Configuration
+python-dotenv>=1.0.0

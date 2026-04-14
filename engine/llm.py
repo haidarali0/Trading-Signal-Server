@@ -2,11 +2,8 @@ import json
 import numpy as np
 from openai import OpenAI
 import json_repair
-from engine.llm_prompt import prompt_1
-
-
-API = "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"
-
+from engine.llm_prompt import prompt
+from config import OPENROUTER_API_KEY as API, MODEL_NAME
 
 def to_float(v):
     """Convert numpy types to python floats"""
@@ -95,13 +92,13 @@ def inference(info, symbol, time_frame):
     api_key=API,
     )
     print("Sending request to LLM...")
-    prompt = prompt_1.format(symbol=symbol, time_frame=time_frame, info=info)
+    formatted_prompt = prompt.format(symbol=symbol, time_frame=time_frame, info=info)
     response = client.chat.completions.create(
-    model="google/gemini-2.5-flash-lite-preview-09-2025",#anthropic/claude-opus-4.6",#"deepseek/deepseek-chat-v3-0324", #"minimax/minimax-m2.5",
+    model=MODEL_NAME,
     messages=[
             {
                 "role": "user",
-                "content":prompt
+                "content": formatted_prompt
             }
             ],
     extra_body={"reasoning": {"enabled": True}}

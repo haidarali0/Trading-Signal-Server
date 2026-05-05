@@ -1,6 +1,15 @@
-# Trading View Server
+# Trading Signal Server
 
-A Python-based trading analysis system that uses LLM for market regime detection and sends signals via Telegram.
+A Python-based trading signal system that uses LLM-driven market analysis and sends alerts via Telegram.
+
+This project is built to:
+- connect directly to Telegram for automated signal delivery,
+- fetch free technical indicators from market data APIs,
+- support OpenRouter so you can choose any available LLM model easily,
+- analyze multiple symbols with flexible timeframe and indicator settings,
+- output charts and signal summaries for each analysis run,
+- provide backtesting capabilities with token usage and cost tracking,
+- run in dry-run mode when you want to test without sending Telegram messages.
 
 ## Setup
 
@@ -75,33 +84,33 @@ The system includes a backtesting module to evaluate performance on historical d
 
 ### Usage
 
-Run backtesting with historical data:
+Run backtesting with recent candles and optional token cost controls:
 ```bash
-python -m backtesting.backtest --start-date 2024-01-01 --end-date 2024-01-15 -s BTCUSDT
+python -m backtesting.backtest -s BTCUSDT
 ```
 
 #### Backtesting Options:
-- `--start-date DATE`: Start date for backtesting (required, format: YYYY-MM-DD)
-- `--end-date DATE`: End date for backtesting (required, format: YYYY-MM-DD)
-- `-s, --symbols SYMBOLS`: Symbols to backtest (default: BTCUSDT BNBUSDT)
+- `-s, --symbols SYMBOLS`: Symbols to backtest (default: first 2 symbols from config, e.g. BTCUSDT BNBUSDT)
+- `--lookback N`: Number of most recent candles to load (default: 400)
 - `--interval INTERVAL`: Timeframe interval (default: 1h)
 - `--step STEP`: Step size in candles between tests (default: 10)
-- `--n N`: Number of recent candles for LLM input (default: 40)
-- `--higher-timeframes TF`: Higher timeframe intervals (default: 4h)
-- `--indicators INDICATORS`: Indicator columns to include
+- `--n N`: Number of recent candles used for LLM input (default: 40)
+- `--higher-timeframes TF`: Higher timeframe intervals (default: [4h])
+- `--indicators INDICATORS`: Indicator columns to include (default: EMA20 EMA50 EMA100 EMA200 sma20 sma50 rsi macd_line macd_signal macd_hist stoch_k stoch_d atr bb_upper bb_middle bb_lower vwap)
 - `--max-expected-time MAX`: Maximum expected time in candles (default: 12)
 - `--token-limit LIMIT`: Maximum token usage limit (default: 50000)
-- `--token-price PRICE`: Price per token for cost calculation (default: 0.0)
-- `--max-cost COST`: Maximum dollar cost allowed during backtest (default: 0.0, disabled)
+- `--input-token-price PRICE`: Price per input token for cost calculation (default: 0.0)
+- `--output-token-price PRICE`: Price per output token for cost calculation (default: 0.0)
+- `--max-cost COST`: Maximum dollar cost for token usage (default: 0.0, disabled)
 - `--output-dir DIR`: Output directory for results (default: backtest_results)
 
 #### Examples:
 ```bash
-# Backtest BTCUSDT for January 2024
-python -m backtesting.backtest --start-date 2024-01-01 --end-date 2024-01-31 -s BTCUSDT
+# Backtest BTCUSDT using the last 400 candles
+python -m backtesting.backtest --lookback 400 -s BTCUSDT
 
-# Backtest multiple symbols with custom settings and token limit
-python -m backtesting.backtest --start-date 2024-01-01 --end-date 2024-01-15 -s BTCUSDT ETHUSDT --interval 4h --step 5 --token-limit 10000 --token-price 0.0001
+# Backtest multiple symbols with custom settings and token cost limits
+python -m backtesting.backtest --lookback 200 -s BTCUSDT ETHUSDT --interval 4h --step 5 --token-limit 10000 --input-token-price 0.0001 --output-token-price 0.0001
 ```
 
 ### Backtesting Output

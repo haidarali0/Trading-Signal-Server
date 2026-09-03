@@ -109,4 +109,7 @@ STRICT RULES:
 
 Market Data:
 {info}
+
+Additional external context (use this as supplemental evidence when relevant):
+{web_context}
 """

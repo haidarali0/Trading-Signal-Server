@@ -3,6 +3,8 @@ from ta.momentum import RSIIndicator, StochasticOscillator
 from ta.volatility import BollingerBands, AverageTrueRange
 import pandas as pd
 
+# Computes a comprehensive set of technical indicators (EMA, SMA, RSI, MACD, Stochastic, ATR, Bollinger Bands, VWAP) and returns them as a DataFrame, optionally filtering by a specified list.
+# Function: calculate_indicators
 def calculate_indicators(df, indicators_list=None):
     close = df["close"]
     ema20  = EMAIndicator(close, 20).ema_indicator()

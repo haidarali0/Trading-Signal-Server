@@ -1,0 +1,1 @@
+# Backtesting package for trading system

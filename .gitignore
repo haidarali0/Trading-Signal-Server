@@ -140,6 +140,7 @@ celerybeat.pid
 .env
 .workspace
 cache/
+backtest_results/
 .envrc
 .venv
 env/

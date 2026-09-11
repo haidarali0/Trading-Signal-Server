@@ -24,6 +24,20 @@ from web.search import search_web_context
 from ml_builder import append_record
 
 
+STOP_REQUEST_FILE = os.path.join("cache", "stop_requested.json")
+
+
+def stop_requested() -> bool:
+    try:
+        if not os.path.exists(STOP_REQUEST_FILE):
+            return False
+        with open(STOP_REQUEST_FILE, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return bool(payload.get("active"))
+    except (OSError, ValueError, TypeError):
+        return False
+
+
 # Function: evaluate_trade_outcome
 def evaluate_trade_outcome(df_future: pd.DataFrame, scenario: str, entry_price: float, target_price: float, stop_loss: float) -> tuple[str, float]:
     """
@@ -242,6 +256,9 @@ def run_backtest(
     symbol_steps = []
 
     for symbol in symbols:
+        if stop_requested():
+            print("Stopping backtest before the next symbol.", flush=True)
+            break
         print(f"\n{'='*50}")
         print(f"Backtesting {symbol}")
         print(f"{'='*50}")
@@ -287,7 +304,13 @@ def run_backtest(
         print(f"[debug] {symbol}: prepared {total_steps} test windows (n={n}, step={step}, future={max_expected_time})", flush=True)
 
     for symbol, test_indices, total_steps, symbol_results, total_return, wins, losses, timeouts, quant_data, agreement_windows, disagreement_windows, no_trade_windows, llm_windows, buy_and_hold_return, df_all in symbol_steps:
+        if stop_requested():
+            print("Stopping backtest before the next symbol.", flush=True)
+            break
         for completed, i in enumerate(test_indices, start=1):
+            if stop_requested():
+                print("Stopping backtest before the next test window.", flush=True)
+                break
             total_completed_steps += 1
             print(f"[progress] TOTAL {total_completed_steps}/{total_steps_total}", flush=True)
             print(f"[progress] {symbol} {completed}/{total_steps}", flush=True)

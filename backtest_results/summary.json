@@ -1,0 +1,48 @@
+{
+  "total_tokens": 240978,
+  "symbols": {
+    "BTCUSDT": {
+      "total_trades": 4,
+      "wins": 1,
+      "losses": 2,
+      "timeouts": 1,
+      "success_rate": 0.25,
+      "total_return": -0.15880347383153956,
+      "avg_return_per_trade": -0.03970086845788489,
+      "buy_and_hold_return": -1.8461755983846635,
+      "outperformance": 1.687372124553124,
+      "business_metrics": {
+        "win_rate": 0.25,
+        "profit_factor": 0.7384756081443209,
+        "avg_win": 0.4484189450974546,
+        "avg_loss": -0.3036112094644971,
+        "average_trade_duration": 6.0,
+        "max_drawdown": 0.36968098857349674,
+        "total_return": -0.15880347383153956
+      },
+      "input_tokens": 239408,
+      "output_tokens": 1570,
+      "total_tokens": 240978,
+      "total_cost": 0.0,
+      "requested_lookback": 400,
+      "actual_start": "2026-08-25 13:00:00",
+      "actual_end": "2026-09-11 04:00:00",
+      "inferences_per_trade": 2,
+      "llm_models": [
+        "qwen/qwen3-235b-a22b-2507"
+      ],
+      "llm_consensus": {
+        "agreed_windows": 4,
+        "disagreed_windows": 0,
+        "no_trade_windows": 2,
+        "agreement_ratio": 1.0
+      },
+      "llm_performance": {
+        "agreement_ratio": 1.0,
+        "direction_accuracy": 0.3333333333333333,
+        "confidence_calibration_error": 0.5733333333333334,
+        "decision_stability": 0.996840631996164
+      }
+    }
+  }
+}

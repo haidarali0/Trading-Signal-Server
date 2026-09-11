@@ -240,7 +240,7 @@ function refreshSymbolSelector(symbols = []) {
   const selector = $('#symbol-selector');
   if (!selector) return;
   const current = selectedSymbol || $('#symbol')?.textContent || '';
-  const defaults = ['BTCUSDT','BNBUSDT','ZECUSDT','ETHUSDT','PEPEUSDT','XRPUSDT','DOGEUSDT','SOLUSDT','FUNUSDT','ASTRUSDT','ETHFIUSDT'];
+  const defaults = ['BTCUSDT','BNBUSDT','ZECUSDT','ETHUSDT','PEPEUSDT','XRPUSDT','DOGEUSDT','SOLUSDT','ASTRUSDT','ETHFIUSDT'];
   const values = [...new Set([...defaults, ...symbols.filter(Boolean)])];
   selector.innerHTML = '<option value="">Select symbol</option>' + values.map((symbol) => `<option value="${symbol}"${symbol === current ? ' selected' : ''}>${symbol}</option>`).join('');
   if (!selector.value && values.length) {
@@ -667,7 +667,7 @@ addFields('#live-form', `<h3 class="advanced-title">Advanced live parameters</h3
 <label>Higher timeframes<input name="higher_timeframes" value="4h" placeholder="4h, 1d"></label><label>Indicators<input name="indicators" value="EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap"></label>
 <div class="pair"><label>Web aspects<input name="web_search_aspects" value="policy, news, macro, exchange"></label><label>Web extra terms<input name="web_search_extra_terms" placeholder="regulation, ETF"></label></div><div class="pair"><label>Web topics<input name="web_search_topics" placeholder="policy, news"></label><label>Web max results<input name="web_search_max_results" type="number" min="1" value="5"></label></div>`);
 // add web_search_sites input to live advanced params
-document.querySelector('#live-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
+document.querySelector('#live-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<input name="prompt_files" placeholder="prompts/test.txt"></label><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
 addFields('#test-form', `<h3 class="advanced-title">All backtest parameters</h3>
 <div class="pair"><label>Step<input name="step" type="number" min="1" value="10"></label><label>Inferences per trade<input name="iterations" type="number" min="1" max="10" value="2"></label></div>
 <label>Voting models<input name="model_names" placeholder="Default from .env, or model-a, model-b"></label>
@@ -683,7 +683,7 @@ addFields('#test-form', `<h3 class="advanced-title">All backtest parameters</h3>
 <label>Quant indicators<input name="quant_indicators" placeholder="rsi, atr, EMA20"></label>
 <div class="pair"><label>Web aspects<input name="web_search_aspects" value="policy, news, macro, exchange"></label><label>Web extra terms<input name="web_search_extra_terms" placeholder="regulation, ETF"></label></div><div class="pair"><label>Web topics<input name="web_search_topics" placeholder="policy, news"></label><label>Web max results<input name="web_search_max_results" type="number" min="1" value="5"></label></div><label class="switch"><input name="quant_enabled" type="checkbox"><span></span>Enable quant model</label><label class="switch"><input name="web_search_enabled" type="checkbox"><span></span>Enable web context</label>`);
 // add web_search_sites input to test advanced params
-document.querySelector('#test-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
+document.querySelector('#test-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<input name="prompt_files" placeholder="prompts/test.txt"></label><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
 
 // Insert Manage LLM prompts button inside advanced parameters (one row alone)
 ['live','test'].forEach((id) => {

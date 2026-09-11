@@ -147,6 +147,7 @@ def inference(info, symbol, time_frame, web_context=None, model_name=None, promp
                 "content": formatted_prompt
             }
         ],
+        max_tokens=8192,
         extra_body={"reasoning": {"enabled": True}}
     )
     res = json_repair.loads(response.choices[0].message.content)

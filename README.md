@@ -61,13 +61,15 @@ The dashboard includes:
 
 ### Dashboard Screenshots
 
-The repository includes screenshots of the main dashboard views:
+The current dashboard includes live command controls, test-lab strategy validation, trade idea previews, and detailed trade drill-downs:
 
-![Live dashboard](dash_images/live.png)
+![Live trading dashboard](dash_images/live-GUI.png)
 
-![Test dashboard](dash_images/test.png)
+![Test lab dashboard](dash_images/test-GUI.png)
 
-![Configuration dashboard](dash_images/configs.png)
+![Trade idea preview](dash_images/trade-from-live.png)
+
+![Trade details view](dash_images/trade-from-test.png)
 
 ## Quick Start
 
@@ -311,6 +313,50 @@ Each model is validated with walk-forward splits and reports metrics, confidence
 - build more advanced portfolio and risk controls
 - add real-time alerts and execution orchestration layers
 - evolve the GUI into a complete trading research workstation
+
+## Prompt Contract for Signal Generation
+
+All prompt templates should enforce the same output contract when generating trade signals. This keeps the model responses consistent, machine-readable, and compatible with the backtesting and live execution pipeline.
+
+```text
+Final confidence = holistic judgment, not formula
+
+------------------------------------
+OUTPUT FORMAT (STRICT JSON):
+
+{{
+"entry_price": <number>, 
+"scenario": "up" | "down" | "no_trade", 
+"confidence": <number between 0 and 1>, 
+"target_price": <number>, 
+"stop_loss": <number>, 
+"expected_time": <number>, 
+"analysis": "<max 80 words>"
+ }}
+
+------------------------------------
+STRICT RULES:
+- MUST use current price as entry
+- expected time should be less than 12 candles
+- no nulls
+- no indicator names dominance in explanation (focus on behavior)
+- if unclear → no_trade
+
+Market Data:
+{info}
+
+Additional external context (use this as supplemental evidence when relevant):
+{web_context}
+```
+
+### Prompt-writing rules
+
+- `scenario` must be one of `"up"`, `"down"`, or `"no_trade"`
+- `confidence` must be numeric and remain in the range $0$ to $1$
+- `entry_price` must reflect the current market value
+- `expected_time` should stay below 12 candles
+- `analysis` must be concise and avoid naming indicators as the main explanation
+- If conviction is weak or market context is mixed, the correct fallback is `"no_trade"`
 
 ## Notes
 

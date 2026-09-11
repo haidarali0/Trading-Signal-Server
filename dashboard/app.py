@@ -684,8 +684,8 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/ml-data":
             # simple pagination via querystring not required currently
-            params = {k: v[0] for k, v in (dict((p.split('=') for p in (urlparse(self.path).query or '').split('&') if p)) ).items()} if urlparse(self.path).query else {}
-            limit = int(params.get('limit', 100)) if params.get('limit') else 100
+            params = parse_qs(urlparse(self.path).query)
+            limit = int(params.get("limit", ["100"])[0])
             return self.send_json(list_records(limit=limit))
         if path == "/api/ml-data/export":
             records = export_records()

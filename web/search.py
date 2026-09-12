@@ -300,9 +300,18 @@ def search_web_context(symbol: str, aspects: Optional[List[str]] = None, extra_t
     if as_of:
         query = f"{query} before:{as_of:%Y-%m-%d}"
 
-    search_url = "https://duckduckgo.com/html/"
+    search_url = "https://html.duckduckgo.com/html/"
     params = {"q": query, "kl": "us-en"}
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://duckduckgo.com/",
+    }
 
     if any(t.lower() in {"news","policy","regulation","macro","exchange","update","updates"} for t in (aspects or []) + (extra_terms or [])):
         params["ia"] = "news"

@@ -364,6 +364,7 @@ def prepare_quant_context(
             else "volatility" if target_mode == "future_volatility"
             else "regression"
         )
+        print(f"[Quant] training started: {', '.join(model_names)}")
         quant_result = run_quant_models(
             X,
             y,
@@ -376,6 +377,7 @@ def prepare_quant_context(
             ),
             predict_rows=args.quant_predict_rows,
         )
+        print(f"[Quant] training completed: {', '.join(model_names)}")
         if not quant_result.get("models"):
             print("Quant dataset empty after dropping NaNs — skipping quant training.")
             return None, False, None

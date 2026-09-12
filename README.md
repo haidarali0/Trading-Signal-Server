@@ -212,7 +212,6 @@ Trading-Signal-Server/
 ├── quant/
 ├── web/
 ├── tests/
-├── templates/
 └── dash_images/
 ```
 
@@ -324,34 +323,7 @@ Supported regression models include `random_forest`, `extra_trees`, `gradient_bo
 
 Each model is validated with walk-forward splits and reports metrics, confidence, reliability, and acceptance status. Accepted models are combined into a reliability-weighted ensemble; the best accepted model is also selected for the LLM context. The same quant configuration can be used during backtesting to compare model families fairly.
 
-## Environment Variables
 
-| Variable | Purpose |
-| --- | --- |
-| `OPENROUTER_API_KEY` | LLM access |
-| `MODEL_NAME` | Default model |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
-| `TELEGRAM_CHAT_ID` | Telegram chat target |
-
-## Roadmap
-
-### Near term
-- improve prompt quality and signal consistency
-- expand quant model coverage and validation metrics
-- improve dashboard usability and run controls
-- add more structured export options for analysis teams
-
-### Medium term
-- support additional exchanges and market data sources
-- add stronger alert routing and signal history reviews
-- improve ML dataset labeling and training workflows
-- add deeper backtest comparison views and trade replay
-
-### Long term
-- introduce automated strategy tuning and parameter sweeps
-- build more advanced portfolio and risk controls
-- add real-time alerts and execution orchestration layers
-- evolve the GUI into a complete trading research workstation
 
 ## Prompt Contract for Signal Generation
 

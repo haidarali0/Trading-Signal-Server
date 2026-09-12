@@ -88,6 +88,23 @@ The dashboard images in `dash_images/` show the main workflow areas: live contro
 
 ![ML data dashboard](dash_images/data_tab.png)
 
+## Easy Start (Google Colab)
+
+Run these cells in Google Colab to clone the project, install its dependencies, and perform a safe dry run:
+
+```python
+!git clone https://github.com/haidarali0/Trading-Signal-Server.git
+%cd Trading-Signal-Server
+!pip install -r requirements.txt
+
+import os
+os.environ["OPENROUTER_API_KEY"] = "get your api (free)"
+
+!python main.py --dry-run
+```
+
+Replace the placeholder with your OpenRouter API key. Do not commit a real API key to the repository.
+
 ## Quick Start
 
 ### 1) Install dependencies

@@ -102,10 +102,12 @@ Create a `.env` file:
 
 ```env
 OPENROUTER_API_KEY=your_key_here
-MODEL_NAME=google/gemini-2.5-flash-lite-preview-09-2025
+MODEL_NAME=qwen/qwen3-235b-a22b-2507
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
+
+`MODEL_NAME` is only the default fallback. You can replace it with any model available through OpenRouter.
 
 ### 3) Launch dashboard
 
@@ -178,7 +180,7 @@ Important backtest options include `--lookback`, `--step`, `--iterations`, `--n`
 ## Project Structure
 
 ```text
-server_for_trading_view/
+Trading-Signal-Server/
 ├── main.py
 ├── config.py
 ├── requirements.txt
@@ -190,13 +192,14 @@ server_for_trading_view/
 ├── engine/
 ├── helper/
 ├── ml_builder/
-├── prompts/
 ├── quant/
 ├── web/
 ├── tests/
-├── backtest_results/
-└── .env
+├── templates/
+└── dash_images/
 ```
+
+The `.env`, `cache/`, `backtest_results/`, and `prompts/` directories are local runtime or user-configuration paths. They are created or populated as needed and are excluded from version control where appropriate.
 
 ## Main Commands
 
@@ -231,6 +234,8 @@ The project includes a historical evaluation engine that measures:
 - confidence and direction accuracy
 
 Outputs are saved in `backtest_results/` and include summary JSON/CSV files.
+
+Backtest returns currently do not model exchange fees, slippage, or order execution latency. When both a target and stop-loss fall within the same candle, the evaluator checks the target condition first, so results should be treated as research estimates rather than guarantees.
 
 ## Data & Caching
 
@@ -371,9 +376,11 @@ Additional external context (use this as supplemental evidence when relevant):
 - `scenario` must be one of `"up"`, `"down"`, or `"no_trade"`
 - `confidence` must be numeric and remain in the range $0$ to $1$
 - `entry_price` must reflect the current market value
-- `expected_time` should stay below 12 candles
+- `expected_time` is measured in candles for the selected interval and should stay below 12 candles by default
 - `analysis` must be concise and avoid naming indicators as the main explanation
 - If conviction is weak or market context is mixed, the correct fallback is `"no_trade"`
+
+When multiple LLM responses agree on a direction, the response with the highest confidence is selected. Ties or `no_trade` responses do not produce a directional consensus.
 
 ## Notes
 

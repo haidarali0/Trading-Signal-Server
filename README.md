@@ -8,26 +8,27 @@
   <img src="https://img.shields.io/badge/Status-Active-4CAF50?style=for-the-badge" alt="Status Active" />
 </p>
 
-AI-powered crypto market analysis and signal platform with live execution, backtesting, quant modeling, and a local dashboard.
+AI-powered crypto market analysis and signal platform for live signal generation, historical backtesting, quantitative modeling, Telegram alerts, and local dashboard control.
 
 ## Key Capabilities
 
-- Free market-data access for recent news, whale alerts, candle data, and technical-indicator calculations.
+- Public Binance market-data access for candles, order-book metrics, recent trades, and technical-indicator calculations, subject to API availability and rate limits.
+- Web-search context for recent crypto news, whale activity, policy, macro, and exchange updates.
 - OpenRouter integration to choose from free and paid LLM models according to your needs and budget.
 - Quantitative models that add extra evidence to LLM analysis, news context, candle data, and indicators.
-- Historical testing of configurations and prompts on candle data before going live, with metrics covering both LLM quality and trading performance, including outperformance and win rate.
-- Telegram alerts for live signals and workflow updates.
-- Saved configurations and prompts for repeatable experiments and side-by-side comparisons.
+- Historical testing of configurations and prompts before live signal analysis, with metrics covering LLM quality and trading performance, including win rate, returns, drawdown, and outperformance against buy-and-hold.
+- Optional Telegram alerts for qualifying signals when Telegram credentials are configured.
+- Saved configurations and prompt files for repeatable experiments and manual comparison.
 - ML dataset building from signals collected during testing and live operation.
 - Automatic future-candle ground-truth labeling for live signals when enough later-session data becomes available.
-- Performance controls including repeated iterations of the same request to reduce LLM hallucinations, parallel LLM and quant-model execution, and different prompts for each iteration.
-- Local dashboard controls for live analysis, testing, settings, ML data creation, logs, and results review.
+- Performance controls including repeated LLM iterations for consistency checks, parallel execution of selected quant-model families, and prompt files mapped to voting models and iterations.
+- Local dashboard controls for live analysis, testing, saved configs, prompt management, settings, ML data, logs, and results review.
 
 ## Overview
 
 This project combines:
 
-- live crypto market data and indicators,
+- live crypto market data, order-flow snapshots, and indicators,
 - OpenRouter-based LLM signal generation,
 - multi-model voting for decision stability,
 - quant forecasting support,
@@ -47,6 +48,7 @@ This project combines:
 - Backtesting with performance metrics
 - Request caching and dataset export
 - Local dashboard UI
+- Prompt library and saved configuration management
 
 ## GUI / Dashboard
 
@@ -68,6 +70,8 @@ The dashboard includes:
 
 - Live Control
 - Test Lab
+- Configs
+- LLM Prompts
 - Settings
 - ML Data Builder
 - runtime logs and progress output
@@ -153,7 +157,7 @@ Useful live options include `--symbols`, `--interval`, `--limit`, `--model-names
 
 ### Test and Backtest Commands
 
-Backtesting evaluates historical signals without sending live alerts. It saves machine-readable results in `backtest_results/`.
+Backtesting evaluates historical signals without sending live alerts. It writes machine-readable results locally to `backtest_results/`.
 
 ```bash
 # Backtest one symbol with default settings
@@ -329,7 +333,7 @@ Each model is validated with walk-forward splits and reports metrics, confidence
 
 ## Prompt Contract for Signal Generation
 
-All prompt templates should enforce the same output contract when generating trade signals. This keeps the model responses consistent, machine-readable, and compatible with the backtesting and live execution pipeline.
+All prompt templates should enforce the same output contract when generating trade signals. This keeps the model responses consistent, machine-readable, and compatible with the backtesting and live signal pipeline.
 
 ```text
 Final confidence = holistic judgment, not formula

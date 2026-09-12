@@ -422,14 +422,14 @@ async function refreshDashboard(forceSymbol = null, options = {}) {
     }
     renderMarketData(data);
     $('#connection').textContent = run.status || 'Online';
-    // If web search is unavailable on the server, mark the web_search_sites field with an error
+    // Web sites is optional; keep server availability details in the tooltip only.
     try {
       const webUnavailable = Boolean(data.web_search_unavailable);
       const webMsg = data.web_search_context || '';
       const webField = document.querySelector('input[name="web_search_sites"]');
       if (webField) {
         if (webUnavailable) {
-          setFieldError(webField, 'Web search currently unavailable on server.');
+          setFieldError(webField, '');
           webField.title = webMsg || webField.title;
         } else {
           setFieldError(webField, '');
@@ -643,6 +643,19 @@ populateIndicatorSelectors();
 renderMetricCards(liveDashboardData || {});
 
 // Complete the compact tabs with every option supported by the two argparse parsers.
+const quantModelOptions = [
+  ['random_forest', 'Random Forest'],
+  ['extra_trees', 'Extra Trees'],
+  ['gradient_boosting', 'Gradient Boosting'],
+  ['hist_gradient_boosting', 'Hist Gradient Boosting'],
+  ['k_neighbors', 'K-Neighbors'],
+  ['ridge', 'Ridge'],
+  ['svr', 'SVR'],
+  ['sgd', 'SGD'],
+  ['passive_aggressive', 'Passive Aggressive'],
+  ['logistic_regression', 'Logistic Regression'],
+].map(([value, label]) => `<label><input type="checkbox" value="${value}"${value === 'random_forest' ? ' checked' : ''}>${label}</label>`).join('');
+
 const addFields = (formId, markup) => {
   const form = document.querySelector(formId);
   if (!form) return;
@@ -659,8 +672,8 @@ addFields('#live-form', `<h3 class="advanced-title">Advanced live parameters</h3
 <div class="pair"><label>Voting models<input name="model_names" placeholder="Default from .env, or model-a, model-b"></label><label>Gain ratio threshold<input name="gain_ratio" type="number" step=".1" min="0" value="1"></label></div>
 <div class="pair"><label>Quant candle limit<input name="quant_limit" type="number" min="1" value="400"></label><label>Quant test size<input name="quant_test_size" type="number" step=".01" min=".01" max=".99" value=".2"></label></div>
 <div class="pair"><label>Quant input data<select name="quant_input_data"><option>both</option><option>ohlcv</option><option>indicators</option></select></label></div>
-<div class="pair"><label>Quant target mode<select name="quant_target_mode"><option>raw_price</option><option>percentage_return</option><option>log_return</option><option>binary_direction</option><option>ternary_direction</option><option>future_volatility</option></select></label><label>Quant models<input name="quant_models" value="random_forest" placeholder="random_forest, extra_trees"></label></div>
-<div class="pair"><label>Quant model<select name="quant_model"><option>random_forest</option><option>extra_trees</option><option>gradient_boosting</option><option>hist_gradient_boosting</option><option>k_neighbors</option><option>ridge</option><option>svr</option><option>sgd</option><option>passive_aggressive</option><option>logistic_regression</option></select></label><label>Direction threshold<input name="quant_direction_threshold" type="number" step=".0001" min="0" value=".001"></label></div>
+<div class="pair"><label>Quant target mode<select name="quant_target_mode"><option>raw_price</option><option>percentage_return</option><option>log_return</option><option>binary_direction</option><option>ternary_direction</option><option>future_volatility</option></select></label><label>Quant models<div class="model-picker"><button type="button" class="model-picker-toggle">Random Forest</button><div class="model-picker-menu">${quantModelOptions}</div><input type="hidden" name="quant_models" value="random_forest"></div></label></div>
+<div class="pair"><label>Direction threshold<input name="quant_direction_threshold" type="number" step=".0001" min="0" value=".001"></label></div>
 <div class="pair"><label>Quant transform<select name="quant_transform"><option>none</option><option>bins</option><option>average</option><option>log</option></select></label></div>
 <div class="pair"><label>Quant target<input name="quant_output_target" value="close"></label><label>Quant shift<input name="quant_shift" type="number" min="1" value="1"></label></div>
 <div class="pair"><label>Prediction rows<input name="quant_predict_rows" type="number" min="1" value="1"></label><label>Quant indicators<input name="quant_indicators" placeholder="rsi, atr, EMA20"></label></div>
@@ -677,13 +690,40 @@ addFields('#test-form', `<h3 class="advanced-title">All backtest parameters</h3>
 <div class="pair"><label>Maximum cost (USD)<input name="max_cost" type="number" min="0" step=".01" value="1"></label><label>Output directory<input name="output_dir" value="backtest_results"></label></div>
 <label>Higher timeframes<input name="higher_timeframes" value="4h"></label><label>Indicators<input name="indicators" value="EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap"></label>
 <div class="pair"><label>Quant input data<select name="quant_input_data"><option>both</option><option>ohlcv</option><option>indicators</option></select></label><label>Quant target mode<select name="quant_target_mode"><option>raw_price</option><option>percentage_return</option><option>log_return</option><option>binary_direction</option><option>ternary_direction</option><option>future_volatility</option></select></label></div>
-<div class="pair"><label>Quant models<input name="quant_models" value="random_forest" placeholder="random_forest, extra_trees"></label><label>Direction threshold<input name="quant_direction_threshold" type="number" step=".0001" min="0" value=".001"></label></div>
+<div class="pair"><label>Quant models<div class="model-picker"><button type="button" class="model-picker-toggle">Random Forest</button><div class="model-picker-menu">${quantModelOptions}</div><input type="hidden" name="quant_models" value="random_forest"></div></label><label>Direction threshold<input name="quant_direction_threshold" type="number" step=".0001" min="0" value=".001"></label></div>
 <div class="pair"><label>Quant transform<select name="quant_transform"><option>none</option><option>bins</option><option>average</option><option>log</option></select></label><label>Quant output target<input name="quant_output_target" value="close"></label></div>
 <div class="pair"><label>Quant shift<input name="quant_shift" type="number" min="1" value="1"></label><label>Quant prediction rows<input name="quant_predict_rows" type="number" min="1" value="1"></label></div>
 <label>Quant indicators<input name="quant_indicators" placeholder="rsi, atr, EMA20"></label>
 <div class="pair"><label>Web aspects<input name="web_search_aspects" value="policy, news, macro, exchange"></label><label>Web extra terms<input name="web_search_extra_terms" placeholder="regulation, ETF"></label></div><div class="pair"><label>Web topics<input name="web_search_topics" placeholder="policy, news"></label><label>Web max results<input name="web_search_max_results" type="number" min="1" value="5"></label></div><label class="switch"><input name="quant_enabled" type="checkbox"><span></span>Enable quant model</label><label class="switch"><input name="web_search_enabled" type="checkbox"><span></span>Enable web context</label>`);
 // add web_search_sites input to test advanced params
 document.querySelector('#test-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<input name="prompt_files" placeholder="prompts/test.txt"></label><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
+document.addEventListener('click', (event) => {
+  const toggle = event.target.closest('.model-picker-toggle');
+  if (toggle) {
+    event.preventDefault();
+    const picker = toggle.closest('.model-picker');
+    document.querySelectorAll('.model-picker.is-open').forEach((item) => {
+      if (item !== picker) item.classList.remove('is-open');
+    });
+    picker.classList.toggle('is-open');
+    return;
+  }
+  const checkbox = event.target.closest('.model-picker-menu input[type="checkbox"]');
+  if (checkbox) {
+    const picker = checkbox.closest('.model-picker');
+    const selected = [...picker.querySelectorAll('input[type="checkbox"]:checked')];
+    if (!selected.length) {
+      checkbox.checked = true;
+      return;
+    }
+    picker.querySelector('input[type="hidden"]').value = selected.map((input) => input.value).join(' ');
+    picker.querySelector('.model-picker-toggle').textContent = selected.map((input) => input.parentElement.textContent.trim()).join(', ');
+    return;
+  }
+  if (!event.target.closest('.model-picker')) {
+    document.querySelectorAll('.model-picker.is-open').forEach((item) => item.classList.remove('is-open'));
+  }
+});
 
 // Insert Manage LLM prompts button inside advanced parameters (one row alone)
 ['live','test'].forEach((id) => {
@@ -1540,10 +1580,27 @@ function syncLiveConfigToTest() {
   const configLabel = $('#test-config-label');
   if (!liveForm || !testForm) return;
 
-  const liveData = Object.fromEntries(new FormData(liveForm));
-  if (liveData.symbols) testForm.elements.symbols.value = String(liveData.symbols).trim();
-  if (liveData.interval) testForm.elements.interval.value = String(liveData.interval).trim();
-  if (liveData.limit) testForm.elements.limit.value = String(liveData.limit).trim();
+  Object.entries(liveForm.elements).forEach(([, field]) => {
+    if (!field.name || !testForm.elements[field.name]) return;
+    const target = testForm.elements[field.name];
+    if (field.type === 'checkbox') {
+      target.checked = field.checked;
+    } else {
+      target.value = field.value;
+    }
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  const selectedQuantModels = splitModels(liveForm.elements.quant_models?.value);
+  testForm.querySelectorAll('.model-picker').forEach((picker) => {
+    const selected = [];
+    picker.querySelectorAll('.model-picker-menu input[type="checkbox"]').forEach((checkbox) => {
+      checkbox.checked = selectedQuantModels.includes(checkbox.value);
+      if (checkbox.checked) selected.push(checkbox.parentElement.textContent.trim());
+    });
+    picker.querySelector('.model-picker-toggle').textContent = selected.join(', ') || 'Select models';
+  });
 
   const generatedLabel = createConfigLabel('LIVE');
   testForm.dataset.configName = generatedLabel;

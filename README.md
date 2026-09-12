@@ -10,6 +10,19 @@
 
 AI-powered crypto market analysis and signal platform with live execution, backtesting, quant modeling, and a local dashboard.
 
+## Key Capabilities
+
+- Free market-data access for recent news, whale alerts, candle data, and technical-indicator calculations.
+- OpenRouter integration to choose from free and paid LLM models according to your needs and budget.
+- Quantitative models that add extra evidence to LLM analysis, news context, candle data, and indicators.
+- Historical testing of configurations and prompts on candle data before going live, with metrics covering both LLM quality and trading performance, including outperformance and win rate.
+- Telegram alerts for live signals and workflow updates.
+- Saved configurations and prompts for repeatable experiments and side-by-side comparisons.
+- ML dataset building from signals collected during testing and live operation.
+- Automatic future-candle ground-truth labeling for live signals when enough later-session data becomes available.
+- Performance controls including repeated iterations of the same request to reduce LLM hallucinations, parallel LLM and quant-model execution, and different prompts for each iteration.
+- Local dashboard controls for live analysis, testing, settings, ML data creation, logs, and results review.
+
 ## Overview
 
 This project combines:
@@ -61,15 +74,15 @@ The dashboard includes:
 
 ### Dashboard Screenshots
 
-The current dashboard includes live command controls, test-lab strategy validation, trade idea previews, and detailed trade drill-downs:
+The dashboard images in `dash_images/` show the main workflow areas: live controls, test-lab validation, configuration management, and ML data tools.
 
-![Live trading dashboard](dash_images/live-GUI.png)
+![Live dashboard](dash_images/live_tab.png)
 
-![Test lab dashboard](dash_images/test-GUI.png)
+![Test lab dashboard](dash_images/test_tab.png)
 
-![Trade idea preview](dash_images/trade-from-live.png)
+![Configuration dashboard](dash_images/configs_tab.png)
 
-![Trade details view](dash_images/trade-from-test.png)
+![ML data dashboard](dash_images/data_tab.png)
 
 ## Quick Start
 

@@ -1,8 +1,10 @@
 import argparse
 import json
+import math
 import os
 from collections import Counter
 from datetime import datetime, timedelta
+from time import perf_counter
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
@@ -14,12 +16,20 @@ from config import (
     DEFAULT_LIMIT,
     DEFAULT_N,
     DEFAULT_SYMBOLS,
+    DECISION_MODELS,
     MODEL_NAME,
 )
 from crypto_data.getter import Config, get_candles, get_market_snapshot
 from crypto_data.indicators import calculate_indicators
-from engine.llm import build_llm_market_input, inference, load_prompt_texts, select_prompt_text
+from engine.llm import build_llm_market_input, load_prompt_texts, select_prompt_text
+from plugins import (
+    apply_preprocessors,
+    decision_model_setup_warning,
+    format_extension_selection,
+)
+from plugins.dispatch import run_inference
 from quant import prepare_quant_dataset, train_regressor, predict_with_model, explain_quant_output, QuantConfig, run_quant_models, available_target_modes, available_models, available_classifiers
+from skills import available_skills
 from web.search import search_web_context
 from ml_builder import append_record
 
@@ -41,36 +51,37 @@ def stop_requested() -> bool:
 # Function: evaluate_trade_outcome
 def evaluate_trade_outcome(df_future: pd.DataFrame, scenario: str, entry_price: float, target_price: float, stop_loss: float) -> tuple[str, float]:
     """
-    Evaluate if the trade was successful based on future price action.
-    Returns: (outcome, return_percentage)
+    Evaluate a trade in candle order, excluding candles that cross both barriers.
     """
-    if scenario == "up":
-        # For up trade, success if high >= target, failure if low <= stop
-        max_high = df_future['high'].max()
-        min_low = df_future['low'].min()
-        if max_high >= target_price:
-            return_percentage = (target_price - entry_price) / entry_price * 100
-            return 'success', return_percentage
-        elif min_low <= stop_loss:
-            return_percentage = (stop_loss - entry_price) / entry_price * 100
-            return 'failure', return_percentage
-        else:
-            return 'timeout', 0.0
-    elif scenario == "down":
-        # For down trade, success if low <= target, failure if high >= stop
-        max_high = df_future['high'].max()
-        min_low = df_future['low'].min()
-        if min_low <= target_price:
-            return_percentage = (entry_price - target_price) / entry_price * 100  # Profit when price goes down
-            return 'success', return_percentage
-        elif max_high >= stop_loss:
-            return_percentage = (entry_price - stop_loss) / entry_price * 100  # Loss when price goes up
-            return 'failure', return_percentage
-        else:
-            return 'timeout', 0.0
-    else:
+    if scenario not in {"up", "down"}:
         return 'no_trade', 0.0
 
+    for _, candle in df_future.iterrows():
+        if scenario == "up":
+            target_hit = candle["high"] >= target_price
+            stop_hit = candle["low"] <= stop_loss
+        else:
+            target_hit = candle["low"] <= target_price
+            stop_hit = candle["high"] >= stop_loss
+
+        if target_hit and stop_hit:
+            return "ambiguous", 0.0
+        if target_hit:
+            return_percentage = (
+                (target_price - entry_price) / entry_price * 100
+                if scenario == "up"
+                else (entry_price - target_price) / entry_price * 100
+            )
+            return "success", return_percentage
+        if stop_hit:
+            return_percentage = (
+                (stop_loss - entry_price) / entry_price * 100
+                if scenario == "up"
+                else (entry_price - stop_loss) / entry_price * 100
+            )
+            return "failure", return_percentage
+
+    return "timeout", 0.0
 
 def compute_business_metrics(trades: List[Dict[str, Any]]) -> Dict[str, float]:
     """Compute business-style metrics from completed trades."""
@@ -85,9 +96,10 @@ def compute_business_metrics(trades: List[Dict[str, Any]]) -> Dict[str, float]:
             "total_return": 0.0,
         }
 
-    wins = [trade["return_pct"] for trade in trades if trade.get("outcome") == "success"]
-    losses = [trade["return_pct"] for trade in trades if trade.get("outcome") == "failure"]
-    durations = [float(trade.get("expected_time", 0) or 0) for trade in trades]
+    scored_trades = [trade for trade in trades if trade.get("outcome") != "ambiguous"]
+    wins = [trade["return_pct"] for trade in scored_trades if trade.get("outcome") == "success"]
+    losses = [trade["return_pct"] for trade in scored_trades if trade.get("outcome") == "failure"]
+    durations = [float(trade.get("expected_time", 0) or 0) for trade in scored_trades]
     cumulative = 0.0
     peak = 0.0
     max_drawdown = 0.0
@@ -107,7 +119,7 @@ def compute_business_metrics(trades: List[Dict[str, Any]]) -> Dict[str, float]:
     total_negative = sum(abs(value) for value in losses if value < 0)
 
     return {
-        "win_rate": len(wins) / len(trades),
+        "win_rate": len(wins) / len(scored_trades) if scored_trades else 0.0,
         "profit_factor": (total_positive / total_negative) if total_negative else float("inf" if total_positive else 0.0),
         "avg_win": sum(wins) / len(wins) if wins else 0.0,
         "avg_loss": sum(losses) / len(losses) if losses else 0.0,
@@ -120,6 +132,76 @@ def compute_business_metrics(trades: List[Dict[str, Any]]) -> Dict[str, float]:
 def _normalized_confidence(value: Any) -> float:
     confidence = float(value or 0.0)
     return confidence / 100 if confidence > 1 else confidence
+
+
+def _outcome_probability(window: Dict[str, Any]) -> float:
+    probability = window.get("trade_success_probability")
+    if probability is None:
+        probability = window.get("confidence")
+    return _normalized_confidence(probability)
+
+
+def binary_brier_score(probability: float, outcome: str) -> float:
+    """Score probability of target-before-stop success against a resolved outcome."""
+    if outcome not in {"success", "failure", "timeout"}:
+        raise ValueError("Brier score requires a resolved trade outcome.")
+    label = 1.0 if outcome == "success" else 0.0
+    return (probability - label) ** 2
+
+
+def model_brier_probability(response: Dict[str, Any], model_name: str) -> Any:
+    """Return the probability field that means target-before-stop success."""
+    if model_name.casefold() in {name.casefold() for name in DECISION_MODELS}:
+        return response.get("trade_success_probability")
+    return response.get("confidence")
+
+
+def compute_model_brier_metrics(
+    window_scores: Dict[str, List[float]],
+    exclusions: Dict[str, Counter],
+) -> Dict[str, Dict[str, Any]]:
+    """Summarize equally weighted per-window model Brier scores and coverage."""
+    model_names = set(window_scores) | set(exclusions)
+    metrics = {}
+    for model_name in sorted(model_names):
+        scores = window_scores.get(model_name, [])
+        counts = exclusions.get(model_name, Counter())
+        metrics[model_name] = {
+            "brier_score": sum(scores) / len(scores) if scores else None,
+            "scored_windows": len(scores),
+            "excluded_no_trade": counts.get("no_trade", 0),
+            "excluded_ambiguous": counts.get("ambiguous", 0),
+            "excluded_unresolved": counts.get("unresolved", 0),
+            "excluded_missing_probability": counts.get("missing_probability", 0),
+        }
+    return metrics
+
+
+def compute_inference_latency_metrics(
+    latencies_by_model: Dict[str, List[float]],
+) -> Dict[str, Dict[str, float | int]]:
+    """Summarize end-to-end inference call latency in seconds, including failures."""
+    metrics: Dict[str, Dict[str, float | int]] = {}
+    for model_name, samples in sorted(latencies_by_model.items()):
+        latencies = sorted(float(sample) for sample in samples)
+        if not latencies:
+            continue
+
+        count = len(latencies)
+        middle = count // 2
+        median_latency = (
+            latencies[middle]
+            if count % 2
+            else (latencies[middle - 1] + latencies[middle]) / 2
+        )
+        p95_index = max(0, math.ceil(0.95 * count) - 1)
+        metrics[model_name] = {
+            "request_count": count,
+            "mean_seconds": sum(latencies) / count,
+            "median_seconds": median_latency,
+            "p95_seconds": latencies[p95_index],
+        }
+    return metrics
 
 
 def compute_llm_performance_metrics(windows: List[Dict[str, Any]], iterations: int) -> Dict[str, float]:
@@ -144,7 +226,7 @@ def compute_llm_performance_metrics(windows: List[Dict[str, Any]], iterations: i
     )
 
     confidence_errors = [
-        abs(_normalized_confidence(window.get("confidence")) - (1.0 if window.get("outcome") == "success" else 0.0))
+        abs(_outcome_probability(window) - (1.0 if window.get("outcome") == "success" else 0.0))
         for window in completed
     ]
     confidence_calibration_error = sum(confidence_errors) / len(confidence_errors) if confidence_errors else 0.0
@@ -239,12 +321,16 @@ def run_backtest(
     iterations: int = 2,
     model_names: List[str] | None = None,
     prompt_files: List[str] | None = None,
+    inference_plugin: str = "model",
+    inference_skill: str = "default",
+    preprocessors: List[str] | None = None,
 ) -> Dict[str, Any]:
     """
     Run backtesting on historical data.
     """
     if model_names is None:
         model_names = [MODEL_NAME]
+    preprocessors = preprocessors or ["none"]
 
     prompt_texts = load_prompt_texts(prompt_files) if prompt_files else None
     results = {}
@@ -254,6 +340,7 @@ def run_backtest(
     total_steps_total = 0
     total_completed_steps = 0
     symbol_steps = []
+    inference_latencies_by_model: Dict[str, List[float]] = {}
 
     for symbol in symbols:
         if stop_requested():
@@ -290,11 +377,14 @@ def run_backtest(
         wins = 0
         losses = 0
         timeouts = 0
+        ambiguous = 0
         quant_data = None
         agreement_windows = 0
         disagreement_windows = 0
         no_trade_windows = 0
         llm_windows = []
+        model_brier_window_scores: Dict[str, List[float]] = {}
+        model_brier_exclusions: Dict[str, Counter] = {}
 
         # Loop through the data
         test_indices = list(range(n, len(df_all) - max_expected_time, step))
@@ -393,6 +483,8 @@ def run_backtest(
                 quant_data=quant_data,
                 web_data=web_data,
             )
+            market_payload = apply_preprocessors(json.loads(market_info), preprocessors)
+            market_info = json.dumps(market_payload, indent=2, default=str)
 
             # Run several inferences and require the same scenario from all of them,
             # matching the consistency check used by the live analysis workflow.
@@ -404,14 +496,25 @@ def run_backtest(
                     prompt_text = None
                     if prompt_texts is not None:
                         prompt_text = select_prompt_text(prompt_texts, (attempt - 1) % len(model_names))
-                    response, usage = inference(
-                        market_info,
-                        symbol,
-                        interval,
-                        web_context=web_data.get("context", "") if web_data else None,
-                        model_name=selected_model,
-                        prompt_text=prompt_text,
-                    )
+                    inference_started = perf_counter()
+                    try:
+                        response, usage = run_inference(
+                            inference_plugin,
+                            market_info,
+                            symbol,
+                            interval,
+                            web_context=web_data.get("context", "") if web_data else None,
+                            model_name=selected_model,
+                            prompt_text=prompt_text,
+                            skill_name=inference_skill,
+                            scoring_horizon=max_expected_time,
+                        )
+                    finally:
+                        inference_latency_seconds = perf_counter() - inference_started
+                        inference_latencies_by_model.setdefault(selected_model, []).append(
+                            inference_latency_seconds
+                        )
+                    response["inference_latency_seconds"] = inference_latency_seconds
                     if selected_model:
                         response["model_name"] = selected_model
                     usage_input, usage_output, usage_total = parse_usage(usage)
@@ -423,6 +526,53 @@ def run_backtest(
             except Exception as e:
                 print(f"Error in inference: {e}")
                 continue
+
+            scores_by_model: Dict[str, List[float]] = {}
+            for response in responses:
+                model_name = str(response.get("model_name") or "unknown")
+                exclusions = model_brier_exclusions.setdefault(model_name, Counter())
+                scenario = str(response.get("scenario", "")).lower().strip()
+                if scenario == "no_trade":
+                    exclusions["no_trade"] += 1
+                    continue
+
+                raw_probability = model_brier_probability(response, model_name)
+                if raw_probability is None:
+                    exclusions["missing_probability"] += 1
+                    continue
+                probability = float(raw_probability)
+                if not 0 <= probability <= 1:
+                    raise ValueError(
+                        f"Model '{model_name}' returned a trade-success probability "
+                        "outside the [0, 1] range."
+                    )
+
+                if len(future_df) < max_expected_time:
+                    exclusions["unresolved"] += 1
+                    continue
+                model_future = future_df.iloc[:max_expected_time]
+                model_outcome, _ = evaluate_trade_outcome(
+                    model_future,
+                    scenario,
+                    float(response["entry_price"]),
+                    float(response["target_price"]),
+                    float(response["stop_loss"]),
+                )
+                if model_outcome == "ambiguous":
+                    exclusions["ambiguous"] += 1
+                elif model_outcome == "no_trade":
+                    exclusions["no_trade"] += 1
+                elif model_outcome not in {"success", "failure", "timeout"}:
+                    exclusions["unresolved"] += 1
+                else:
+                    scores_by_model.setdefault(model_name, []).append(
+                        binary_brier_score(probability, model_outcome)
+                    )
+
+            for model_name, scores in scores_by_model.items():
+                model_brier_window_scores.setdefault(model_name, []).append(
+                    sum(scores) / len(scores)
+                )
 
             scenarios = [str(response.get('scenario', '')).lower().strip() for response in responses]
             res, vote_status = winning_llm_response(responses)
@@ -453,6 +603,7 @@ def run_backtest(
             llm_window.update({
                 "outcome": outcome,
                 "confidence": res.get("confidence"),
+                "trade_success_probability": res.get("trade_success_probability"),
             })
             llm_windows.append(llm_window)
             print(f"[debug] step {completed}: evaluated outcome={outcome}, return={return_pct:.2f}%", flush=True)
@@ -466,6 +617,8 @@ def run_backtest(
                 total_return += return_pct
             elif outcome == 'timeout':
                 timeouts += 1
+            elif outcome == "ambiguous":
+                ambiguous += 1
 
             # Record result
             chart_df = df_all.iloc[max(0, i - n + 1):i + 1 + max_expected_time]
@@ -485,6 +638,15 @@ def run_backtest(
                 'timestamp': df_all.iloc[i]['time'],
                 'symbol': symbol,
                 'scenario': res['scenario'],
+                'inference_latency_seconds': res.get('inference_latency_seconds'),
+                'inference_latencies': [
+                    {
+                        'model_name': response.get('model_name'),
+                        'seconds': response.get('inference_latency_seconds'),
+                    }
+                    for response in responses
+                    if response.get('inference_latency_seconds') is not None
+                ],
                 'confidence': res['confidence'],
                 'entry_price': res['entry_price'],
                 'target_price': res['target_price'],
@@ -559,15 +721,17 @@ def run_backtest(
 
         business_metrics = compute_business_metrics(symbol_results)
         llm_performance = compute_llm_performance_metrics(llm_windows, iterations)
+        resolved_trade_count = len(symbol_results) - ambiguous
         results[symbol] = {
             'results': symbol_results,
             'total_trades': len(symbol_results),
             'wins': wins,
             'losses': losses,
             'timeouts': timeouts,
-            'success_rate': wins / len(symbol_results) if symbol_results else 0,
+            'ambiguous': ambiguous,
+            'success_rate': wins / resolved_trade_count if resolved_trade_count else 0,
             'total_return': total_return,
-            'avg_return_per_trade': total_return / len(symbol_results) if symbol_results else 0,
+            'avg_return_per_trade': total_return / resolved_trade_count if resolved_trade_count else 0,
             'buy_and_hold_return': buy_and_hold_return,
             'outperformance': total_return - buy_and_hold_return,
             'business_metrics': business_metrics,
@@ -587,13 +751,17 @@ def run_backtest(
                 'agreement_ratio': llm_performance['agreement_ratio'],
             },
             'llm_performance': llm_performance,
+            'model_brier_scores': compute_model_brier_metrics(
+                model_brier_window_scores,
+                model_brier_exclusions,
+            ),
         }
 
         print(f"\n{symbol} Summary:")
         print(f"Requested candles: {lookback}")
         print(f"Actual window: {actual_start} to {actual_end}")
         print(f"Total Trades: {results[symbol]['total_trades']}")
-        print(f"Wins: {wins}, Losses: {losses}, Timeouts: {timeouts}")
+        print(f"Wins: {wins}, Losses: {losses}, Timeouts: {timeouts}, Ambiguous: {ambiguous}")
         print(f"Success Rate: {results[symbol]['success_rate']:.2%}")
         print(f"Total Return: {total_return:.2f}%")
         print(f"Avg Return per Trade: {results[symbol]['avg_return_per_trade']:.2f}%")
@@ -617,6 +785,9 @@ def run_backtest(
             print(f"Max Cost Cap: ${max_cost:.2f}")
 
     results['total_tokens'] = total_tokens
+    results['inference_latency_by_model'] = compute_inference_latency_metrics(
+        inference_latencies_by_model
+    )
     return results
 
 
@@ -630,17 +801,19 @@ def save_results(results: Dict[str, Any], output_dir: str = "backtest_results"):
     # Save summary
     summary = {
         'total_tokens': results['total_tokens'],
+        'inference_latency_by_model': results.get('inference_latency_by_model', {}),
         'symbols': {}
     }
 
     for symbol, data in results.items():
-        if symbol == 'total_tokens':
+        if symbol in {'total_tokens', 'inference_latency_by_model'}:
             continue
         summary['symbols'][symbol] = {
             'total_trades': data['total_trades'],
             'wins': data['wins'],
             'losses': data['losses'],
             'timeouts': data['timeouts'],
+            'ambiguous': data.get('ambiguous', 0),
             'success_rate': data['success_rate'],
             'total_return': data['total_return'],
             'avg_return_per_trade': data['avg_return_per_trade'],
@@ -658,6 +831,7 @@ def save_results(results: Dict[str, Any], output_dir: str = "backtest_results"):
             'llm_models': data.get('llm_models', []),
             'llm_consensus': data['llm_consensus'],
             'llm_performance': data['llm_performance'],
+            'model_brier_scores': data.get('model_brier_scores', {}),
         }
 
         # Save detailed results
@@ -674,7 +848,13 @@ def save_results(results: Dict[str, Any], output_dir: str = "backtest_results"):
 
 # Function: parse_arguments
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Backtesting for Trading View Analysis System")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Backtesting for Trading View Analysis System. Models and inference plugins "
+            "may need specific market features; choose suitable built-in or custom "
+            "preprocessors or outputs may be limited."
+        )
+    )
     parser.add_argument(
         '-s', '--symbols',
         nargs='+',
@@ -708,13 +888,33 @@ def parse_arguments():
         '--model-names',
         nargs='+',
         default=None,
-        help=f'One or more OpenRouter model names used across iterations for voting (default: {MODEL_NAME} from .env)'
+        help=f'One or more model names used across inference providers for voting (default: {MODEL_NAME} from .env)'
     )
     parser.add_argument(
         '--prompt-files',
         nargs='+',
         default=None,
         help='One or more prompt file paths. If one file is provided, all models use it. If multiple files are provided, each model uses the corresponding prompt file.'
+    )
+    parser.add_argument(
+        '--inference-plugin',
+        default='model',
+        help='Inference backend: llm, test, or a custom module.path:ClassName (default: llm)'
+    )
+    parser.add_argument(
+        '--inference-skill',
+        choices=available_skills(),
+        default='default',
+        help='Additive prompt skill used by the model inference plugin'
+    )
+    parser.add_argument(
+        '--preprocessors',
+        nargs='+',
+        default=['none'],
+        help=(
+            'Market feature preprocessors: none, fibonacci, or '
+            'module.path:ClassName. Select features required by your model/plugin.'
+        )
     )
     parser.add_argument(
         '--n',
@@ -843,14 +1043,31 @@ def parse_arguments():
 
     args = parser.parse_args()
     validate_arguments(parser, args)
+    feature_warning = decision_model_setup_warning(
+        args.inference_plugin,
+        args.model_names,
+        args.preprocessors,
+        args.prompt_files,
+    )
+    if feature_warning:
+        print(feature_warning)
     return args
 
 
 def validate_arguments(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    if not (os.getenv("OPENROUTER_API_KEY") or ""):
-        parser.error("OPENROUTER_API_KEY is required. Set it in .env or the dashboard Settings tab.")
     if not args.model_names:
         args.model_names = [MODEL_NAME]
+    decision_models = {name.casefold() for name in DECISION_MODELS}
+    if args.inference_plugin == "model":
+        uses_openrouter = (
+            not (os.getenv("TYPESAFE_API_KEY") or "")
+            or any(name.casefold() not in decision_models for name in args.model_names)
+        )
+        if uses_openrouter and not (os.getenv("OPENROUTER_API_KEY") or ""):
+            parser.error(
+                "OPENROUTER_API_KEY is required for OpenRouter inference. "
+                "Set it in .env or the dashboard Settings tab."
+            )
     if len(set(args.model_names)) != len(args.model_names):
         parser.error("--model-names must not contain duplicate model names")
     if args.iterations < len(args.model_names):
@@ -859,6 +1076,8 @@ def validate_arguments(parser: argparse.ArgumentParser, args: argparse.Namespace
         parser.error("--prompt-files must either be a single shared prompt or match the number of --model-names")
     if args.iterations < 1:
         parser.error("--iterations must be greater than or equal to 1")
+    if len(set(args.preprocessors)) != len(args.preprocessors):
+        parser.error("--preprocessors must not contain duplicate names")
     if args.lookback < 1:
         parser.error("--lookback must be greater than or equal to 1")
     if args.step < 1:
@@ -899,6 +1118,14 @@ if __name__ == "__main__":
     print(f"⏰ Interval: {args.interval}")
     print(f"📈 Step: {args.step}")
     print(f"💰 Token prices: input ${args.input_token_price:.6f}, output ${args.output_token_price:.6f}")
+    print(format_extension_selection(
+        args.inference_plugin,
+        args.inference_skill,
+        args.preprocessors,
+        prompt_files=args.prompt_files,
+        model_names=args.model_names,
+        direct_typesafe_available=bool(os.getenv("TYPESAFE_API_KEY")),
+    ))
     print("=" * 50)
 
     results = run_backtest(
@@ -932,5 +1159,8 @@ if __name__ == "__main__":
         web_search_topics=args.web_search_topics,
         web_search_max_results=args.web_search_max_results,
         prompt_files=args.prompt_files,
+        inference_plugin=args.inference_plugin,
+        inference_skill=args.inference_skill,
+        preprocessors=args.preprocessors,
     )
     save_results(results, args.output_dir)

@@ -2,13 +2,13 @@ import argparse
 import csv
 import json
 import os
-import time
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from config import (
     CONFIDENCE_THRESHOLD,
+    DECISION_MODELS,
     DEFAULT_HIGHER_TIMEFRAMES,
     DEFAULT_INDICATORS,
     DEFAULT_INTERVAL,
@@ -20,10 +20,16 @@ from config import (
 )
 from crypto_data.getter import Config, get_candles, get_market_snapshot
 from crypto_data.indicators import calculate_indicators
-from engine.llm import build_llm_market_input, inference, load_prompt_texts, select_prompt_text
+from engine.llm import build_llm_market_input, load_prompt_texts, select_prompt_text
 from engine.plot import plot_data
 from helper.utils import calculate_ratios, format_minimal_pro, send_telegram_message
 from ml_builder import append_record
+from plugins import (
+    apply_preprocessors,
+    decision_model_setup_warning,
+    format_extension_selection,
+)
+from plugins.dispatch import run_inference
 from quant import (
     available_models,
     available_transform_modes,
@@ -36,6 +42,7 @@ from quant import (
     available_target_modes,
     available_classifiers,
 )
+from skills import available_skills
 from web.search import search_web_context
 
 
@@ -66,6 +73,9 @@ Examples:
   python main.py -s BTCUSDT ETHUSDT                 # Analyze specific symbols
   python main.py --interval 4h --limit 500          # Custom timeframe and data limit
   python main.py --dry-run                          # Test without sending Telegram messages
+
+Models and inference plugins may need specific market features. Choose suitable
+built-in or custom preprocessors; otherwise, outputs may be limited or unusable.
         """,
     )
 
@@ -229,6 +239,26 @@ Examples:
         help="One or more prompt file paths. If one file is provided, all models use it. If multiple files are provided, each model uses the corresponding file.",
     )
     parser.add_argument(
+        "--inference-plugin",
+        default="model",
+        help="Inference backend: llm, test, or a custom module.path:ClassName (default: llm)",
+    )
+    parser.add_argument(
+        "--inference-skill",
+        choices=available_skills(),
+        default="default",
+        help="Additive prompt skill used by the model inference plugin",
+    )
+    parser.add_argument(
+        "--preprocessors",
+        nargs="+",
+        default=["none"],
+        help=(
+            "Market feature preprocessors: none, fibonacci, or "
+            "module.path:ClassName. Select features required by your model/plugin."
+        ),
+    )
+    parser.add_argument(
         "--confidence-threshold",
         type=float,
         default=CONFIDENCE_THRESHOLD,
@@ -253,14 +283,31 @@ Examples:
     )
     args = parser.parse_args()
     validate_arguments(parser, args)
+    feature_warning = decision_model_setup_warning(
+        args.inference_plugin,
+        args.model_names,
+        args.preprocessors,
+        args.prompt_files,
+    )
+    if feature_warning:
+        print(feature_warning)
     return args
 
 
 def validate_arguments(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    if not (os.getenv("OPENROUTER_API_KEY") or ""):
-        parser.error("OPENROUTER_API_KEY is required. Set it in .env or the dashboard Settings tab.")
     if not args.model_names:
         args.model_names = [MODEL_NAME]
+    decision_models = {name.casefold() for name in DECISION_MODELS}
+    if args.inference_plugin == "model":
+        uses_openrouter = (
+            not (os.getenv("TYPESAFE_API_KEY") or "")
+            or any(name.casefold() not in decision_models for name in args.model_names)
+        )
+        if uses_openrouter and not (os.getenv("OPENROUTER_API_KEY") or ""):
+            parser.error(
+                "OPENROUTER_API_KEY is required for OpenRouter inference. "
+                "Set it in .env or the dashboard Settings tab."
+            )
     if len(set(args.model_names)) != len(args.model_names):
         parser.error("--model-names must not contain duplicate model names")
     if args.iterations < len(args.model_names):
@@ -273,6 +320,8 @@ def validate_arguments(parser: argparse.ArgumentParser, args: argparse.Namespace
         parser.error("--gain-ratio-threshold must be greater than or equal to 0")
     if args.iterations < 1:
         parser.error("--iterations must be greater than or equal to 1")
+    if len(set(args.preprocessors)) != len(args.preprocessors):
+        parser.error("--preprocessors must not contain duplicate names")
     if args.limit < 1:
         parser.error("--limit must be greater than or equal to 1")
     if args.quant_limit is not None and args.quant_limit < 1:
@@ -782,6 +831,8 @@ def run_analysis_cycle(symbols: List[str], args: argparse.Namespace) -> None:
                         "context": web_context.get("context", ""),
                         "results": web_context.get("results", []),
                     }
+                payload = apply_preprocessors(payload, args.preprocessors)
+                market_info = json.dumps(payload, indent=2, default=str)
                 crypto_data = {
                     "symbol": symbol,
                     "time_frame": basic_interval,
@@ -799,15 +850,17 @@ def run_analysis_cycle(symbols: List[str], args: argparse.Namespace) -> None:
                 prompt_text = None
                 if prompt_texts is not None:
                     prompt_text = select_prompt_text(prompt_texts, iteration_index % len(models))
-                res, _usage = inference(
+                res, _usage = run_inference(
+                    args.inference_plugin,
                     market_info,
                     Config.SYMBOL,
                     basic_interval,
                     web_context=web_context.get("context", "") if web_context is not None else None,
                     model_name=selected_model,
                     prompt_text=prompt_text,
+                    skill_name=args.inference_skill,
                 )
-                res["model_name"] = selected_model
+                res.setdefault("model_name", selected_model)
                 responses.append(res)
                 signal_history[symbol].append(res["scenario"].lower().strip())
                 print(f"LLM response for {Config.SYMBOL}: {res}")
@@ -856,6 +909,14 @@ if __name__ == "__main__":
     print(f"📈 LLM limit: {args.limit}")
     print(f"📉 Quant limit: {args.quant_limit if args.quant_limit is not None else args.limit}")
     print(f"🧾 LLM indicators: {args.indicators}")
+    print(format_extension_selection(
+        args.inference_plugin,
+        args.inference_skill,
+        args.preprocessors,
+        prompt_files=args.prompt_files,
+        model_names=args.model_names,
+        direct_typesafe_available=bool(os.getenv("TYPESAFE_API_KEY")),
+    ))
     if args.quant_indicators is not None:
         print(f"🧪 Quant indicators: {args.quant_indicators}")
     else:

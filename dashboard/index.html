@@ -7,7 +7,7 @@
 <body>
   <main class="shell">
     <header><div class="brand"><span class="mark">◈</span><div><small>TRADING SIGNAL SERVER</small><h1>Command Center</h1></div></div><div class="status"><i></i><span id="connection">Syncing</span></div></header>
-    <nav class="tabs" aria-label="Primary navigation"><button class="tab active" data-tab="live">Live Control</button><button class="tab" data-tab="test">Test Lab</button><button class="tab" data-tab="configs">Configs</button><button class="tab" data-tab="ml-data">ML Data Builder</button><button class="tab" data-tab="prompts">LLM Prompts</button><button class="tab" data-tab="settings">Settings</button></nav>
+    <nav class="tabs" aria-label="Primary navigation"><button class="tab active" data-tab="live">Live Control</button><button class="tab" data-tab="test">Test Lab</button><button class="tab" data-tab="configs">Configs</button><button class="tab" data-tab="ml-data">ML Data Builder</button><button class="tab" data-tab="prompts">LLM Prompts</button><button class="tab" data-tab="extensions">Skills &amp; Plugins</button><button class="tab" data-tab="settings">Settings</button></nav>
 
     <section class="page active" id="live">
       <div class="hero"><div><p class="eyebrow">LIVE MARKET INTELLIGENCE</p><div class="symbol-picker-row"><h2 id="symbol">—</h2><button id="refresh-dashboard" class="refresh-button" type="button" title="Reload latest data for the selected symbol" aria-label="Reload latest data">↻</button><label class="symbol-select-wrap"><span class="visually-hidden">Choose symbol</span><select id="symbol-selector"><option value="">Select symbol</option></select></label></div><p class="subtitle"><span id="interval">—</span> · Last candle <span id="updated">—</span></p><div class="hero-progress" id="dashboard-loading" hidden><div class="hero-progress-meta"><span id="dashboard-loading-label">Fetching latest data…</span><span id="dashboard-loading-symbol">—</span></div><div class="hero-progress-bar" aria-hidden="true"><div class="hero-progress-fill" id="dashboard-loading-fill"></div></div></div><p class="dashboard-process-status" id="dashboard-process-status" role="status">Process idle.</p></div><div class="price"><span>Current price</span><strong id="price">—</strong></div></div>
@@ -41,6 +41,22 @@
       <section class="card"><div class="card-head"><div><p class="eyebrow">MODEL MAPPINGS</p><h3>Current voting model settings</h3></div></div><div id="prompt-model-summary" class="prompt-model-summary"><p class="subtitle">Set model names and prompt files in the Live or Test forms, then open this tab to review them.</p></div></section>
     </section>
 
-    <section class="page" id="settings"><div class="hero"><div><p class="eyebrow">LOCAL CONFIGURATION</p><h2>Settings</h2><p class="subtitle">Store credentials locally for OpenRouter and optional Telegram alerts.</p></div></div><section class="card settings-card"><div class="card-head"><div><p class="eyebrow">CREDENTIALS</p><h3>API settings</h3></div><span id="settings-state" class="badge">Not loaded</span></div><form id="settings-form" class="form"><label>OpenRouter API key<input name="openrouter_api_key" type="password" placeholder="Leave blank to keep saved key"></label><label>Telegram bot token <em>optional</em><input name="telegram_bot_token" type="password" placeholder="Leave blank to keep saved token"></label><label>Telegram chat ID <em>optional</em><input name="telegram_chat_id" type="password" placeholder="Leave blank to keep saved chat ID"></label><button class="primary" type="submit">Save settings <b>→</b></button></form></section></section>
+    <section class="page" id="extensions">
+      <div class="hero"><div><p class="eyebrow">EXTENSION CATALOG</p><h2>Skills &amp; Plugins</h2><p class="subtitle">Search available inference plugins, preprocessing plugins, and additive prompt skills.</p></div></div>
+      <section class="card extension-controls">
+        <label class="extension-search-label" for="extension-search">Search catalog</label>
+        <input id="extension-search" type="search" placeholder="Search by name, type, or description">
+        <div class="extension-filters" role="group" aria-label="Filter catalog">
+          <button type="button" class="extension-filter active" data-extension-filter="all">All</button>
+          <button type="button" class="extension-filter" data-extension-filter="inference">Inference</button>
+          <button type="button" class="extension-filter" data-extension-filter="preprocessor">Preprocessing</button>
+          <button type="button" class="extension-filter" data-extension-filter="skill">Skills</button>
+        </div>
+        <p id="extension-count" class="subtitle" role="status">Open this tab to load available extensions.</p>
+      </section>
+      <div id="extension-list" class="extension-list" aria-live="polite"></div>
+    </section>
+
+    <section class="page" id="settings"><div class="hero"><div><p class="eyebrow">LOCAL CONFIGURATION</p><h2>Settings</h2><p class="subtitle">Store OpenRouter and optional direct TypeSafe Jev credentials locally, with optional Telegram alerts.</p></div></div><section class="card settings-card"><div class="card-head"><div><p class="eyebrow">CREDENTIALS</p><h3>API settings</h3></div><span id="settings-state" class="badge">Not loaded</span></div><form id="settings-form" class="form"><label>OpenRouter API key<input name="openrouter_api_key" type="password" placeholder="Leave blank to keep saved key"></label><label>TypeSafe API key for direct Jev<input name="typesafe_api_key" type="password" placeholder="Leave blank to keep saved key"></label><label>Telegram bot token <em>optional</em><input name="telegram_bot_token" type="password" placeholder="Leave blank to keep saved token"></label><label>Telegram chat ID <em>optional</em><input name="telegram_chat_id" type="password" placeholder="Leave blank to keep saved chat ID"></label><button class="primary" type="submit">Save settings <b>→</b></button></form></section></section>
   </main><div id="toast"></div><script src="app.js"></script>
 </body></html>

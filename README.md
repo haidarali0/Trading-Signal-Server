@@ -1,4 +1,4 @@
-# Trading Signal Server
+# Trading Signal Server v2
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+" />
@@ -8,7 +8,46 @@
   <img src="https://img.shields.io/badge/Status-Active-4CAF50?style=for-the-badge" alt="Status Active" />
 </p>
 
-AI-powered crypto market analysis and signal platform for live signal generation, historical backtesting, quantitative modeling, Telegram alerts, and local dashboard control.
+Crypto market analysis and signal research platform supporting typed Jev decision models and chat-based LLMs, historical backtesting, quantitative context, optional Telegram alerts, and a local dashboard.
+
+## Version 2: Model Workflows and Backtest Comparison
+
+Version 2 expands the project with selectable inference and preprocessing plugins, reusable prompt skills, and per-model backtest metrics. The `model` plugin supports Jev's typed decisions and regular chat-model JSON signals. The Fibonacci Jev workflow is documented below alongside chat-model use, so either can be run alone or compared in the same backtest.
+
+### What's new in v2
+
+- **Jev decision-model support:** typed Fibonacci target selection, provider routing through TypeSafe or OpenRouter, and a separate backtest trade-success probability used for Brier scoring.
+- **Inference plugins and preprocessors:** selectable inference backends, plus `none`, `fibonacci`, and `price_change` feature preprocessors.
+- **Prompt skills:** optional reusable guidance such as `default`, `risk_first`, and `market_structure`, applied in addition to the selected model-compatible prompt.
+- **Easy extension points:** users can add a documented skill folder; developers can implement and select custom inference or preprocessing plugins without changing the core dispatch flow.
+- **Model-specific prompt pairing:** chat models use JSON-output prompts; Jev uses typed-choice prompts. Backtests can map prompts to models by list position.
+- **Backtest comparison metrics:** per-model trade-success Brier scores with scored/excluded window counts, and inference latency with request count, mean, median, and p95.
+- **Dashboard experiment workflow:** save configurations and test results, then review prompt/model settings and performance metrics.
+
+### Jev Fibonacci workflow
+
+- Select `typesafe/jev-1.14` (or another configured `typesafe/jev-*` model).
+- Select the `fibonacci` preprocessor so the typed target choices are available.
+- Use `prompts/fibonacci_jev_decision.txt`; use `prompts/fibonacci_jev_backup_decision.txt` for the GPT + Jev comparison setup.
+- Use `prompts/fibonacci_decision.txt` for chat models such as GPT and Qwen. It requests JSON and is not a Jev typed-choice prompt.
+- For a standalone strategy result, run one model by itself. With one model and `--iterations 2`, the same model is called twice and both decisions must agree. For a GPT + Jev run with `--iterations 2`, each model is called once and their decisions must agree. That run evaluates the combined agreement strategy, not either model's individual returns.
+
+Unlike a chat model that generates a JSON signal, Jev selects from explicit typed Fibonacci target choices. The application maps the selected level to a direction and applies a consistent stop rule. During backtests, Jev also receives a separate native probability question about whether its selected target reaches before the stop within the shared evaluation horizon. Jev's Fibonacci-choice probability is **not** its trade-success probability.
+
+### Saved backtest results
+
+The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call.
+
+| Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call |
+| GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call |
+| **Jev 1.14 alone, 2 calls/window** | **63.0%** | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** |
+| GPT-6 Luna + Jev 1.14, 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s |
+
+In these saved tests, Jev's clearest standalone strengths are **speed** and a higher observed win rate than the tested chat models. The GPT + Jev run had the strongest observed ensemble return and win rate, while adding a much faster Jev call instead of a second GPT call. This is promising evidence that Jev can complement GPT; it does not prove that Jev caused the improvement or will outperform on future data. The hybrid result is from the agreement strategy, and its individual model Brier scores do not represent individual strategy returns. Samples are limited, ambiguous outcomes were excluded from Brier, and returns do not include fees or slippage.
+
+For a stronger comparison, keep the same symbol, interval, candles, horizon, preprocessor, risk rules, and prompt-to-model order. Review each model's Brier score together with its scored/excluded window counts, and review hybrid returns separately from standalone returns.
 
 ## Key Capabilities
 
@@ -23,13 +62,14 @@ AI-powered crypto market analysis and signal platform for live signal generation
 - Automatic future-candle ground-truth labeling for live signals when enough later-session data becomes available.
 - Performance controls including repeated LLM iterations for consistency checks, parallel execution of selected quant-model families, and prompt files mapped to voting models and iterations.
 - Local dashboard controls for live analysis, testing, saved configs, prompt management, settings, ML data, logs, and results review.
+- Selectable inference plugins, preprocessors, and prompt skills for provider-specific model workflows.
 
 ## Overview
 
 This project combines:
 
 - live crypto market data, order-flow snapshots, and indicators,
-- OpenRouter-based LLM signal generation,
+- provider-routed model signal generation for Jev decisions and chat-model completions,
 - multi-model voting for decision stability,
 - quant forecasting support,
 - web/news context enrichment,
@@ -188,11 +228,80 @@ python -m backtesting.backtest --symbols BTCUSDT ETHUSDT --interval 4h --lookbac
 # Test multiple LLMs and quant models
 python -m backtesting.backtest --symbols BTCUSDT --model-names openai/gpt-4o-mini google/gemini-2.5-flash --quant-enabled --quant-models random_forest extra_trees
 
+# Compare a chat model with Jev using model-matched Fibonacci prompts
+python -m backtesting.backtest --symbols BTCUSDT --lookback 400 --interval 1h --step 10 --iterations 2 --max-expected-time 12 --model-names openai/gpt-6-luna typesafe/jev-1.14 --prompt-files prompts/fibonacci_decision.txt prompts/fibonacci_jev_backup_decision.txt --preprocessors fibonacci --output-dir backtest_results/gpt_jev
+
 # Control token usage, cost, and output location
 python -m backtesting.backtest --symbols BTCUSDT --token-limit 10000 --max-cost 1.0 --output-dir backtest_results/experiment_01
 ```
 
 Important backtest options include `--lookback`, `--step`, `--iterations`, `--n`, `--model-names`, `--token-limit`, `--input-token-price`, `--output-token-price`, `--max-cost`, `--output-dir`, and the `--quant-*` and `--web-search-*` options.
+
+For backtests, one prompt file is shared by every model; otherwise, prompt files map to models by list position. Keep `--model-names` and `--prompt-files` in the same order. With two models and two iterations, the backtest calls each model once per window and requires agreement on direction before opening a combined trade. Use one model with `--iterations 1` for that model's standalone strategy return; use one model with `--iterations 2` to test repeatability, noting that both calls must agree.
+
+## Inference Plugins and Skills
+
+The built-in `model` inference plugin is the project's model-backed signal path. It sends configured Jev decision models through the TypeSafe or OpenRouter decisions workflow, and other supported models through OpenRouter chat completions.
+
+### Compatibility at a glance
+
+“GenAI/chat” means models selected through the ordinary chat-completions path;
+Jev means the configured `typesafe/jev-*` typed decision models.
+
+| Extension | Jev | GenAI/chat models | Notes |
+| --- | --- | --- | --- |
+| `model` inference plugin | Yes | Yes | Routes Jev to typed target choices and chat models to JSON signal generation. |
+| `risk_first`, `market_structure` skills | Yes, via `model` | Yes, via `model` | Add supplemental prompt guidance. |
+| `none`, `fibonacci`, `price_change` preprocessors | Model-agnostic | Model-agnostic | `none` adds no derived features; `fibonacci` generates retracement levels; `price_change` generates fixed percentage levels. Jev's current typed target workflow uses Fibonacci, not price-change choices. |
+| `prompts/genai_default_trading.txt` | No | Yes | Default chat-model JSON signal prompt; loaded automatically unless a custom prompt is selected. |
+| `prompts/fibonacci_decision.txt` | No | Yes | Chat-model JSON signal prompt with Fibonacci target rules. |
+| `prompts/fibonacci_jev_decision.txt`, `prompts/fibonacci_jev_backup_decision.txt` | Yes | No | Jev typed-choice prompts for Fibonacci target selection. |
+
+The **Skills & Plugins** dashboard catalog shows these compatibility labels on
+each extension card. A preprocessor being model-agnostic means it can run
+independently of a provider; it does not mean every workflow uses its features.
+
+```bash
+python main.py --inference-plugin model --inference-skill risk_first --dry-run
+python main.py --inference-plugin model --model-names typesafe/jev-1.14 --prompt-files prompts/fibonacci_jev_decision.txt --preprocessors fibonacci --dry-run
+```
+
+Skills are additive instruction/knowledge text used by the `model` plugin. The selected prompt (including its required signal output format) remains in effect; selected skills are appended as supplemental guidance. The default GenAI/chat prompt is stored in `prompts/genai_default_trading.txt` and loaded automatically when no `--prompt-files` are provided. A custom prompt file replaces it, while the selected skill is still appended. The `default` skill provides general conservative analysis rules, `risk_first` emphasizes risk and abstention, and `market_structure` focuses on range behavior and confirmation. Add a folder under `skills/` with an `instructions.txt` and `README.md` to make another skill available as `--inference-skill <name>`. Legacy root-level `.txt` skills are still supported.
+
+Preprocessors run after market data, indicators, quant output, and web context are assembled, but before inference. They receive the complete normalized input object (`market`, newest-first `price_history`, optional `market_microstructure`, `trade_flow`, `volatility`, `higher_timeframes`, `quant`, and `web_context`) and append outputs under `derived_features`. The built-in options are `none`, `fibonacci`, and `price_change`. Jev's current typed target workflow uses Fibonacci choices; `price_change` supplies relative levels to model context but is not currently exposed as a Jev choice. GenAI/chat models can consider either feature set when useful. Backtests pass only candles available at each historical test point, so derived features cannot see future candles.
+
+Decision models are listed in `config.DECISION_MODELS`; `typesafe/jev-1.13` and `typesafe/jev-1.14` are currently configured. These IDs are passed unchanged to OpenRouter. If `TYPESAFE_API_KEY` is set in `.env` or Dashboard Settings, Jev automatically uses the direct TypeSafe SDK and maps the selected IDs to `jev-1.13.0` or `jev-1.14.0`, respectively. If that key is not set, Jev uses OpenRouter's typed decisions endpoint. Other models continue to use normal OpenRouter chat completions; a run combining Jev with other models needs both API keys to use direct TypeSafe for Jev and OpenRouter for the remaining models.
+
+The provider route is automatic for configured Jev model IDs: set `TYPESAFE_API_KEY` to use the direct TypeSafe SDK; otherwise set `OPENROUTER_API_KEY` and the app sends the typed decision request through OpenRouter. There is no separate provider flag. If both keys are present, Jev uses direct TypeSafe, while regular chat models still use OpenRouter. The direct route requires the `typesafe-sdk` dependency from the project requirements. OpenRouter access requires that the selected Jev model is available to the account.
+
+For Jev, select `--preprocessors fibonacci` and use `--prompt-files prompts/fibonacci_jev_decision.txt` or `prompts/fibonacci_jev_backup_decision.txt`. The Fibonacci preprocessor calculates the 0, 0.236, 0.382, 0.5, 0.618, 0.786, and 1 retracement prices from the supplied candle window's high and low. The request presents every usable level as a target choice, plus `no_trade`. The selected level and its choice probability are retained as `target_fibonacci_level`, `target_fibonacci_price`, and `confidence`; this is **not** interpreted as probability of a profitable trade. During backtests, the same request also includes a native `noul` question for `trade_success_probability`. The question evaluates whether the target Jev selects is reached before its corresponding stop within the shared backtest horizon (12 candles by default). The OpenRouter adapter reads this from `answers.trade_success.noul`; the direct TypeSafe adapter reads the typed `Noul` answer from the SDK. The app infers `scenario` from whether the target is above or below current price. The stop is the nearest opposing Fibonacci level, with ATR or 1% of current price as fallback. For `no_trade`, entry, target, and stop are set to current price. The adapter leaves `analysis` empty because the decision API returns choices and probabilities, not narrative. These levels come from the supplied candle window and are not pivot-confirmed or predictive guarantees.
+
+The Jev success-probability `noul` question is included in the initial request only during backtests and uses their configured common horizon; normal live runs keep the existing target-selection request. The default chat prompt and `prompts/fibonacci_decision.txt` request JSON and are not suitable for Jev's typed-choice interface. When Jev is selected without the Fibonacci preprocessor or a Jev-compatible prompt, the CLI prints a non-blocking setup warning and the GUI explains the issue and alternatives.
+
+Example Jev live run (the `--dry-run` flag suppresses Telegram alerts):
+
+```bash
+python main.py --symbols BTCUSDT --model-names typesafe/jev-1.14 --iterations 1 --prompt-files prompts/fibonacci_jev_decision.txt --inference-plugin model --inference-skill default --preprocessors fibonacci --dry-run
+```
+
+With `TYPESAFE_API_KEY` configured, this command automatically calls the direct TypeSafe API for Jev; no provider option is needed.
+
+To use Jev through OpenRouter instead, leave `TYPESAFE_API_KEY` unset and provide `OPENROUTER_API_KEY`:
+
+```bash
+python main.py --symbols BTCUSDT --model-names typesafe/jev-1.14 --iterations 1 --prompt-files prompts/fibonacci_jev_decision.txt --inference-plugin model --inference-skill default --preprocessors fibonacci --dry-run
+```
+
+### Add skills and plugins
+
+**Users can add a skill without writing code:** create `skills/<skill-name>/instructions.txt` with focused supplemental guidance and a `README.md` describing its purpose and limits, then choose it with `--inference-skill <skill-name>` (or in the dashboard). A skill adds instructions; it does not replace the selected prompt or its output contract. See the [skills contributor guide](skills/README.md).
+
+**Developers can add plugins using the existing interfaces:**
+
+- An inference plugin derives from `plugins.InferencePlugin` and implements `infer(request)`, returning `(signal_dict, usage)`. The shared validator requires `scenario` (`up`, `down`, or `no_trade`), confidence from 0 to 1, positive entry price and expected time, numeric target and stop prices, and string analysis. Select it with `--inference-plugin package.module:ClassName`.
+- A preprocessing plugin derives from `plugins.PreprocessingPlugin` and implements `transform(market_data)`, returning a JSON-serializable dictionary of derived features. Select it with `--preprocessors package.module:ClassName`. The runner adds its output under `derived_features`.
+
+Put custom plugin code in an importable Python module available to the project. Built-in plugins are listed in the dashboard catalog; custom plugins can be invoked by their module and class path. No edits to the inference dispatcher are required for a custom plugin. See the [plugin contributor guide](plugins/README.md) for contracts and built-in examples. The dashboard exposes built-in plugin, skill, and preprocessor choices and displays the selected run configuration; CLI runs print their selections at startup.
 
 ## Project Structure
 
@@ -202,7 +311,6 @@ Trading-Signal-Server/
 ├── config.py
 ├── requirements.txt
 ├── README.md
-├── cache/
 ├── backtesting/
 ├── crypto_data/
 ├── dashboard/
@@ -210,12 +318,14 @@ Trading-Signal-Server/
 ├── helper/
 ├── ml_builder/
 ├── quant/
+├── plugins/
+├── skills/
 ├── web/
 ├── tests/
 └── dash_images/
 ```
 
-The `.env`, `cache/`, `backtest_results/`, and `prompts/` directories are local runtime or user-configuration paths. They are created or populated as needed and are excluded from version control where appropriate.
+The `.env`, runtime `cache/` data, and `backtest_results/` are excluded from version control. The exception is `cache/saved_configs.json`, which stores shareable dashboard configurations and their saved comparison summaries and can be committed with the project. Do not put credentials or other secrets in saved configurations. Prompt files under `prompts/` are user-configurable project inputs and may be committed when they are intended to be shared.
 
 ## Main Commands
 
@@ -251,7 +361,11 @@ The project includes a historical evaluation engine that measures:
 
 Outputs are saved in `backtest_results/` and include summary JSON/CSV files.
 
-Backtest returns currently do not model exchange fees, slippage, or order execution latency. When both a target and stop-loss fall within the same candle, the evaluator checks the target condition first, so results should be treated as research estimates rather than guarantees.
+Backtest returns currently do not model exchange fees, slippage, or order execution latency. Outcomes are evaluated candle by candle; if one candle crosses both a target and stop-loss, the outcome is marked ambiguous rather than assuming which was hit first.
+
+The Test Lab reports a per-model binary **trade-success Brier score** (lower is better). All models are scored on the same `--max-expected-time` horizon. Standard LLMs use their generated `confidence` as the probability that the proposed target is reached before its stop within this shared horizon; the backtest adds that definition to the model prompt. Jev's Fibonacci-choice probabilities have a different meaning, so they are not reused as trade confidence: the initial decisions request also asks a native `noul` question whose `answers.trade_success.noul` estimates success for the selected target, its corresponding stop, and shared horizon. A target hit is 1; a stop hit or no target/stop hit before the horizon is 0. No-trade signals and same-candle ambiguous outcomes are excluded. The GUI reports scored windows and excluded cases alongside each model's average, weighting each historical window equally when a model is queried repeatedly. Brier calibration uses the shared test horizon, while the strategy's recorded trade outcome still uses its response `expected_time`. For custom prompts or inference plugins, preserve the same confidence meaning to make scores comparable. Brier scores assess calibration on this test sample; they do not prove future profitability or account for fees, slippage, or execution latency.
+
+Backtests also record **inference latency** per model using a monotonic wall-clock timer around each inference call. The saved summary and Test Lab report call count, mean, median, and 95th-percentile latency; failed inference attempts are included. This measures end-to-end inference-call time (including provider/network delay, response handling, and validation), not market-data preparation or actual exchange order execution latency. Compare models under the same run conditions and use the call counts and percentile alongside the mean because network and provider load can vary.
 
 ## Data & Caching
 
@@ -324,52 +438,16 @@ Supported regression models include `random_forest`, `extra_trees`, `gradient_bo
 Each model is validated with walk-forward splits and reports metrics, confidence, reliability, and acceptance status. Accepted models are combined into a reliability-weighted ensemble; the best accepted model is also selected for the LLM context. The same quant configuration can be used during backtesting to compare model families fairly.
 
 
+## Model-Specific Prompt Contracts
 
-## Prompt Contract for Signal Generation
+The inference paths intentionally use different output contracts:
 
-All prompt templates should enforce the same output contract when generating trade signals. This keeps the model responses consistent, machine-readable, and compatible with the backtesting and live signal pipeline.
+- **Jev:** returns one typed choice from the available Fibonacci targets or `no_trade`. Use `prompts/fibonacci_jev_decision.txt` or `prompts/fibonacci_jev_backup_decision.txt` with `--preprocessors fibonacci`. The application converts the selected target into the signal fields used by backtesting and live analysis.
+- **Chat models:** return a JSON signal with `scenario`, `confidence`, `entry_price`, `target_price`, `stop_loss`, `expected_time`, and `analysis`. Use `prompts/fibonacci_decision.txt` for a Fibonacci comparison or `prompts/genai_default_trading.txt` for the default chat workflow.
 
-```text
-Final confidence = holistic judgment, not formula
+Do not give Jev a prompt that requires JSON or give a chat model a prompt that requires only a typed choice. In a multi-model backtest, provide one prompt per model in the same order, or one shared prompt file if the prompt is compatible with every selected model.
 
-------------------------------------
-OUTPUT FORMAT (STRICT JSON):
-
-{{
-"entry_price": <number>, 
-"scenario": "up" | "down" | "no_trade", 
-"confidence": <number between 0 and 1>, 
-"target_price": <number>, 
-"stop_loss": <number>, 
-"expected_time": <number>, 
-"analysis": "<max 80 words>"
- }}
-
-------------------------------------
-STRICT RULES:
-- MUST use current price as entry
-- expected time should be less than 12 candles
-- no nulls
-- no indicator names dominance in explanation (focus on behavior)
-- if unclear → no_trade
-
-Market Data:
-{info}
-
-Additional external context (use this as supplemental evidence when relevant):
-{web_context}
-```
-
-### Prompt-writing rules
-
-- `scenario` must be one of `"up"`, `"down"`, or `"no_trade"`
-- `confidence` must be numeric and remain in the range $0$ to $1$
-- `entry_price` must reflect the current market value
-- `expected_time` is measured in candles for the selected interval and should stay below 12 candles by default
-- `analysis` must be concise and avoid naming indicators as the main explanation
-- If conviction is weak or market context is mixed, the correct fallback is `"no_trade"`
-
-When multiple LLM responses agree on a direction, the response with the highest confidence is selected. Ties or `no_trade` responses do not produce a directional consensus.
+During backtests, chat-model `confidence` is defined as probability that the proposed target reaches before its stop within the common backtest horizon. Jev's Fibonacci-choice probability is a probability over target options, not trade success; Brier scoring uses Jev's separate native trade-success probability instead.
 
 ## Notes
 

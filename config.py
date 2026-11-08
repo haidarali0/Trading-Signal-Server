@@ -1,12 +1,23 @@
 import os
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 # API Configuration
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+_dotenv_values = dotenv_values()
+OPENROUTER_API_KEY = (
+    _dotenv_values["OPENROUTER_API_KEY"]
+    if "OPENROUTER_API_KEY" in _dotenv_values
+    else os.getenv("OPENROUTER_API_KEY")
+)
+TYPESAFE_API_KEY = (
+    _dotenv_values["TYPESAFE_API_KEY"]
+    if "TYPESAFE_API_KEY" in _dotenv_values
+    else os.getenv("TYPESAFE_API_KEY")
+)
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen/qwen3-235b-a22b-2507")
+DECISION_MODELS = frozenset({"typesafe/jev-1.13", "typesafe/jev-1.14"})
 
 # Telegram Bot Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")

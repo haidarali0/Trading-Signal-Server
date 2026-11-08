@@ -145,6 +145,8 @@ function clearTestPage() {
   });
   renderConsensus({});
   renderPerformance({});
+  renderModelBrierScores({});
+  renderInferenceLatency({});
   refreshTestDetails();
 }
 
@@ -449,6 +451,8 @@ async function refreshDashboard(forceSymbol = null, options = {}) {
       setLiveTest(data.run_metrics || {});
       renderConsensus(data.run_metrics?.llm_consensus);
       renderPerformance(data.run_metrics?.llm_performance);
+      renderModelBrierScores({});
+      renderInferenceLatency({});
     } else if (activeLiveRun) {
       renderConsensus({});
       renderPerformance({});
@@ -510,6 +514,141 @@ if (testMetrics && testDebug) testDebug.insertAdjacentElement('afterend', testMe
 if (testMetrics && !$('#test-details-card')) {
   testMetrics.insertAdjacentHTML('afterend', '<section class="card test-details-card" id="test-details-card"><div class="card-head"><div><p class="eyebrow">TRADE DETAILS</p><h3>Candle test view</h3></div><button id="test-details-toggle" class="primary" type="button">Show details</button></div><div id="test-details-body" hidden><div class="detail-controls"><label class="detail-select">Trade<select id="test-trade-select"></select></label><label>Outcome<input id="test-trade-outcome" readonly></label><label>Position start<input id="test-trade-start" readonly></label><label>Position end<input id="test-trade-end" readonly></label></div><canvas id="test-candle-chart" width="900" height="360"></canvas><p class="subtitle" id="test-chart-note">Run a new backtest to save candle windows for this chart.</p><div class="trade-news"><div class="card-head"><div><p class="eyebrow">NEWS CONTEXT</p><h3>Retrieved news used for this test trade</h3></div></div><div class="news-list" id="test-news-list"><p class="subtitle">No retrieved news context for this trade.</p></div></div></div></section>');
 }
+if (testMetrics && !$('#model-brier-card')) {
+  testMetrics.insertAdjacentHTML('afterend', '<section class="card test-details-card" id="model-brier-card"><div class="card-head"><div><p class="eyebrow">MODEL CALIBRATION</p><h3>Trade-success Brier score</h3></div><span class="badge">Lower is better</span></div><p class="subtitle">Measures how closely each model’s success probabilities match actual outcomes. Use it to compare which model’s probabilities are more reliable; lower scores mean better-calibrated predictions.</p><label class="detail-select" for="model-brier-select">Model<select id="model-brier-select"></select></label><div class="metrics" style="grid-template-columns:repeat(4,1fr);margin:14px 0"><article><span>Brier score</span><strong id="model-brier-value">—</strong><small>Mean squared probability error</small></article><article><span>Scored windows</span><strong id="model-brier-count">0</strong><small>Equal weight per historical window</small></article><article><span>Ambiguous excluded</span><strong id="model-brier-ambiguous">0</strong><small>Both barriers crossed in one candle</small></article><article><span>Other excluded</span><strong id="model-brier-excluded">0</strong><small id="model-brier-excluded-detail">No-trade, unresolved, or missing probability</small></article></div><p class="subtitle" id="model-brier-note">Run a backtest to compare model calibration.</p></section>');
+}
+if (testMetrics && !$('#inference-latency-card')) {
+  testMetrics.insertAdjacentHTML('afterend', '<section class="card test-details-card" id="inference-latency-card"><div class="card-head"><div><p class="eyebrow">INFERENCE PERFORMANCE</p><h3>Model inference latency</h3></div></div><p class="subtitle">Wall-clock time for each inference call, including provider response handling and validation. Data preparation is excluded; failed calls are included.</p><label class="detail-select" for="inference-latency-select">Model<select id="inference-latency-select"></select></label><div class="metrics" style="grid-template-columns:repeat(4,1fr);margin:14px 0"><article><span>Mean</span><strong id="inference-latency-mean">—</strong><small>Average call duration</small></article><article><span>Median</span><strong id="inference-latency-median">—</strong><small>Typical call duration</small></article><article><span>95th percentile</span><strong id="inference-latency-p95">—</strong><small>Slow-call indicator</small></article><article><span>Measured calls</span><strong id="inference-latency-count">0</strong><small>Successful and failed attempts</small></article></div><p class="subtitle" id="inference-latency-note">Run a backtest to compare model response speed.</p></section>');
+}
+let inferenceLatencyMetrics = {};
+function formatInferenceLatency(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value)) return '—';
+  return value >= 1 ? `${value.toFixed(2)} s` : `${(value * 1000).toFixed(1)} ms`;
+}
+function renderInferenceLatency(backtest = {}) {
+  const selector = $('#inference-latency-select');
+  if (!selector) return;
+  inferenceLatencyMetrics = backtest.inference_latency_by_model || {};
+  const previous = selector.value;
+  selector.replaceChildren();
+  Object.keys(inferenceLatencyMetrics).sort().forEach((modelName) => {
+    const option = document.createElement('option');
+    option.value = modelName;
+    option.textContent = modelName;
+    selector.appendChild(option);
+  });
+  if (inferenceLatencyMetrics[previous]) selector.value = previous;
+  const modelName = selector.value || Object.keys(inferenceLatencyMetrics).sort()[0];
+  if (modelName) selector.value = modelName;
+  renderSelectedInferenceLatency();
+}
+function renderSelectedInferenceLatency() {
+  const modelName = $('#inference-latency-select')?.value;
+  const metric = modelName ? inferenceLatencyMetrics[modelName] : null;
+  $('#inference-latency-mean').textContent = metric
+    ? formatInferenceLatency(metric.mean_seconds)
+    : '—';
+  $('#inference-latency-median').textContent = metric
+    ? formatInferenceLatency(metric.median_seconds)
+    : '—';
+  $('#inference-latency-p95').textContent = metric
+    ? formatInferenceLatency(metric.p95_seconds)
+    : '—';
+  $('#inference-latency-count').textContent = String(metric?.request_count || 0);
+  $('#inference-latency-note').textContent = modelName
+    ? 'Measured on this backtest run. Latency depends on network and provider load; compare with call counts.'
+    : 'Run a backtest with model names to view inference latency.';
+}
+$('#inference-latency-select')?.addEventListener('change', renderSelectedInferenceLatency);
+let modelBrierMetrics = {};
+function aggregateModelBrierScores(backtest = {}) {
+  const aggregated = {};
+  Object.values(backtest.symbols || {}).forEach((symbolData) => {
+    Object.entries(symbolData.model_brier_scores || {}).forEach(([modelName, metric]) => {
+      const current = aggregated[modelName] || {
+        weightedBrier: 0,
+        scoredWindows: 0,
+        excludedNoTrade: 0,
+        excludedAmbiguous: 0,
+        excludedUnresolved: 0,
+        excludedMissingProbability: 0,
+      };
+      const count = Number(metric.scored_windows || 0);
+      if (count > 0 && metric.brier_score != null && Number.isFinite(Number(metric.brier_score))) {
+        current.weightedBrier += Number(metric.brier_score) * count;
+        current.scoredWindows += count;
+      }
+      current.excludedNoTrade += Number(metric.excluded_no_trade || 0);
+      current.excludedAmbiguous += Number(metric.excluded_ambiguous || 0);
+      current.excludedUnresolved += Number(metric.excluded_unresolved || 0);
+      current.excludedMissingProbability += Number(metric.excluded_missing_probability || 0);
+      aggregated[modelName] = current;
+    });
+  });
+  return Object.fromEntries(Object.entries(aggregated).map(([modelName, metric]) => [
+    modelName,
+    {
+      brier_score: metric.scoredWindows ? metric.weightedBrier / metric.scoredWindows : null,
+      scored_windows: metric.scoredWindows,
+      excluded_no_trade: metric.excludedNoTrade,
+      excluded_ambiguous: metric.excludedAmbiguous,
+      excluded_unresolved: metric.excludedUnresolved,
+      excluded_missing_probability: metric.excludedMissingProbability,
+    },
+  ]));
+}
+function renderModelBrierScores(backtest = {}) {
+  const selector = $('#model-brier-select');
+  if (!selector) return;
+  const aggregated = {};
+  Object.entries(aggregateModelBrierScores(backtest)).forEach(([modelName, metric]) => {
+    const scoredWindows = Number(metric.scored_windows || 0);
+    aggregated[modelName] = {
+      weightedBrier: scoredWindows * Number(metric.brier_score || 0),
+      scoredWindows,
+      excludedNoTrade: Number(metric.excluded_no_trade || 0),
+      excludedAmbiguous: Number(metric.excluded_ambiguous || 0),
+      excludedUnresolved: Number(metric.excluded_unresolved || 0),
+      excludedMissingProbability: Number(metric.excluded_missing_probability || 0),
+    };
+  });
+  modelBrierMetrics = aggregated;
+  const previous = selector.value;
+  selector.replaceChildren();
+  Object.keys(aggregated).sort().forEach((modelName) => {
+    const option = document.createElement('option');
+    option.value = modelName;
+    option.textContent = modelName;
+    selector.appendChild(option);
+  });
+  if (aggregated[previous]) selector.value = previous;
+  const modelName = selector.value || Object.keys(aggregated).sort()[0];
+  if (modelName) selector.value = modelName;
+  renderSelectedModelBrier();
+}
+
+function renderSelectedModelBrier() {
+  const modelName = $('#model-brier-select')?.value;
+  const metric = modelName ? modelBrierMetrics[modelName] : null;
+  const scored = metric?.scoredWindows || 0;
+  $('#model-brier-value').textContent = scored
+    ? (metric.weightedBrier / scored).toFixed(4)
+    : '—';
+  $('#model-brier-count').textContent = String(scored);
+  $('#model-brier-ambiguous').textContent = String(metric?.excludedAmbiguous || 0);
+  const otherExcluded = (metric?.excludedNoTrade || 0)
+    + (metric?.excludedUnresolved || 0)
+    + (metric?.excludedMissingProbability || 0);
+  $('#model-brier-excluded').textContent = String(otherExcluded);
+  $('#model-brier-excluded-detail').textContent = modelName
+    ? `${metric.excludedNoTrade || 0} no-trade · ${metric.excludedUnresolved || 0} unresolved · ${metric.excludedMissingProbability || 0} missing probability`
+    : 'No model scores yet';
+  $('#model-brier-note').textContent = modelName
+    ? 'Confidence is the probability of target-before-stop success within the common --max-expected-time horizon. Compare scores with their scored-window counts.'
+    : 'Run a backtest with model names to view per-model calibration.';
+}
+$('#model-brier-select')?.addEventListener('change', renderSelectedModelBrier);
 
 document.querySelectorAll('.metric-selector').forEach((select) => {
   select.addEventListener('change', () => {
@@ -668,8 +807,23 @@ const addFields = (formId, markup) => {
     form.querySelector('button')?.insertAdjacentHTML('beforebegin', details);
   }
 };
+const commonLlmModels = [
+  'qwen/qwen3-235b-a22b-2507',
+  'typesafe/jev-1.14',
+  'openai/gpt-6-luna',
+  'deepseek/deepseek-v4.1-flash-1017',
+];
+const commonLlmModelNames = new Set(commonLlmModels);
+const decisionModels = new Set(['typesafe/jev-1.13', 'typesafe/jev-1.14']);
+const commonLlmModelOptions = commonLlmModels
+  .map((model) => `<label><input type="checkbox" value="${model}"><span>${model}</span></label>`)
+  .join('');
 addFields('#live-form', `<h3 class="advanced-title">Advanced live parameters</h3>
-<div class="pair"><label>Voting models<input name="model_names" placeholder="Default from .env, or model-a, model-b"></label><label>Gain ratio threshold<input name="gain_ratio" type="number" step=".1" min="0" value="1"></label></div>
+<div class="pair"><label>Inference plugin<select name="inference_plugin"><option value="model">model</option></select></label><label>Inference skill<select name="inference_skill"><option value="default">default</option></select></label></div>
+<label>Preprocessors<select name="preprocessors" multiple size="4" aria-describedby="live-option-help"></select></label>
+<p class="subtitle feature-requirement-note">Models and inference plugins may require specific market features. Add a suitable built-in or custom preprocessor, or choose a compatible inference plugin; otherwise, outputs may be limited or unusable.</p>
+<p class="subtitle run-option-status" role="status">Loading available choices…</p><p id="live-option-help" class="subtitle">Choose one or more preprocessors; leave empty for none. Hold Ctrl or Command to select multiple.</p>
+<div class="pair"><div class="model-selection"><label>Voting models<input name="model_names" placeholder="Default from .env, or type model IDs" title="Select common models below or enter any model ID; separate multiple models with commas."></label><fieldset class="model-choice-list"><legend>Common models · click to select</legend>${commonLlmModelOptions}</fieldset></div><label>Gain ratio threshold<input name="gain_ratio" type="number" step=".1" min="0" value="1"></label></div>
 <div class="pair"><label>Quant candle limit<input name="quant_limit" type="number" min="1" value="400"></label><label>Quant test size<input name="quant_test_size" type="number" step=".01" min=".01" max=".99" value=".2"></label></div>
 <div class="pair"><label>Quant input data<select name="quant_input_data"><option>both</option><option>ohlcv</option><option>indicators</option></select></label></div>
 <div class="pair"><label>Quant target mode<select name="quant_target_mode"><option>raw_price</option><option>percentage_return</option><option>log_return</option><option>binary_direction</option><option>ternary_direction</option><option>future_volatility</option></select></label><label>Quant models<div class="model-picker"><button type="button" class="model-picker-toggle">Random Forest</button><div class="model-picker-menu">${quantModelOptions}</div><input type="hidden" name="quant_models" value="random_forest"></div></label></div>
@@ -680,10 +834,14 @@ addFields('#live-form', `<h3 class="advanced-title">Advanced live parameters</h3
 <label>Higher timeframes<input name="higher_timeframes" value="4h" placeholder="4h, 1d"></label><label>Indicators<input name="indicators" value="EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap"></label>
 <div class="pair"><label>Web aspects<input name="web_search_aspects" value="policy, news, macro, exchange"></label><label>Web extra terms<input name="web_search_extra_terms" placeholder="regulation, ETF"></label></div><div class="pair"><label>Web topics<input name="web_search_topics" placeholder="policy, news"></label><label>Web max results<input name="web_search_max_results" type="number" min="1" value="5"></label></div>`);
 // add web_search_sites input to live advanced params
-document.querySelector('#live-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<input name="prompt_files" placeholder="prompts/test.txt"></label><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
+document.querySelector('#live-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<select name="prompt_files" multiple size="4" aria-describedby="live-prompt-help"></select></label><p id="live-prompt-help" class="subtitle">Choose one prompt to share, or one per voting model. Leave empty to use the default prompt. Hold Ctrl or Command to select multiple.</p><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
 addFields('#test-form', `<h3 class="advanced-title">All backtest parameters</h3>
+<div class="pair"><label>Inference plugin<select name="inference_plugin"><option value="model">model</option></select></label><label>Inference skill<select name="inference_skill"><option value="default">default</option></select></label></div>
+<label>Preprocessors<select name="preprocessors" multiple size="4" aria-describedby="test-option-help"></select></label>
+<p class="subtitle feature-requirement-note">Models and inference plugins may require specific market features. Add a suitable built-in or custom preprocessor, or choose a compatible inference plugin; otherwise, outputs may be limited or unusable.</p>
+<p class="subtitle run-option-status" role="status">Loading available choices…</p><p id="test-option-help" class="subtitle">Choose one or more preprocessors; leave empty for none. Hold Ctrl or Command to select multiple.</p>
 <div class="pair"><label>Step<input name="step" type="number" min="1" value="10"></label><label>Inferences per trade<input name="iterations" type="number" min="1" max="10" value="2"></label></div>
-<label>Voting models<input name="model_names" placeholder="Default from .env, or model-a, model-b"></label>
+<div class="model-selection"><label>Voting models<input name="model_names" placeholder="Default from .env, or type model IDs" title="Select common models below or enter any model ID; separate multiple models with commas."></label><fieldset class="model-choice-list"><legend>Common models · click to select</legend>${commonLlmModelOptions}</fieldset></div>
 <label>LLM input candles (n)<input name="n" type="number" min="1" value="40"></label>
 <div class="pair"><label>Max expected time<input name="max_expected_time" type="number" min="1" value="12"></label><label>Token limit<input name="token_limit" type="number" min="0" value="1500000"></label></div>
 <div class="pair"><label>Input token price<input name="input_token_price" type="number" min="0" step=".000001" value="0"></label><label>Output token price<input name="output_token_price" type="number" min="0" step=".000001" value="0"></label></div>
@@ -696,7 +854,7 @@ addFields('#test-form', `<h3 class="advanced-title">All backtest parameters</h3>
 <label>Quant indicators<input name="quant_indicators" placeholder="rsi, atr, EMA20"></label>
 <div class="pair"><label>Web aspects<input name="web_search_aspects" value="policy, news, macro, exchange"></label><label>Web extra terms<input name="web_search_extra_terms" placeholder="regulation, ETF"></label></div><div class="pair"><label>Web topics<input name="web_search_topics" placeholder="policy, news"></label><label>Web max results<input name="web_search_max_results" type="number" min="1" value="5"></label></div><label class="switch"><input name="quant_enabled" type="checkbox"><span></span>Enable quant model</label><label class="switch"><input name="web_search_enabled" type="checkbox"><span></span>Enable web context</label>`);
 // add web_search_sites input to test advanced params
-document.querySelector('#test-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<input name="prompt_files" placeholder="prompts/test.txt"></label><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
+document.querySelector('#test-form .advanced-fields')?.insertAdjacentHTML('beforeend', '<label>Prompt files<select name="prompt_files" multiple size="4" aria-describedby="test-prompt-help"></select></label><p id="test-prompt-help" class="subtitle">Choose one prompt to share, or one per voting model. Leave empty to use the default prompt. Hold Ctrl or Command to select multiple.</p><label>Web sites<input name="web_search_sites" placeholder="coindesk.com, cointelegraph.com"></label>');
 document.addEventListener('click', (event) => {
   const toggle = event.target.closest('.model-picker-toggle');
   if (toggle) {
@@ -723,6 +881,32 @@ document.addEventListener('click', (event) => {
   if (!event.target.closest('.model-picker')) {
     document.querySelectorAll('.model-picker.is-open').forEach((item) => item.classList.remove('is-open'));
   }
+});
+
+function syncCommonModelCheckboxes(input) {
+  const selection = input?.closest('.model-selection');
+  if (!selection) return;
+  const selectedModels = new Set(splitModels(input.value));
+  selection.querySelectorAll('.model-choice-list input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.checked = selectedModels.has(checkbox.value);
+  });
+}
+
+document.querySelectorAll('#live-form [name="model_names"], #test-form [name="model_names"]').forEach((input) => {
+  input.addEventListener('input', () => syncCommonModelCheckboxes(input));
+});
+document.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('.model-choice-list input[type="checkbox"]');
+  if (!checkbox) return;
+  const selection = checkbox.closest('.model-selection');
+  const input = selection.querySelector('[name="model_names"]');
+  const currentModels = splitModels(input.value);
+  const customModels = currentModels.filter((model) => !commonLlmModelNames.has(model));
+  const selectedCommonModels = [...selection.querySelectorAll('.model-choice-list input[type="checkbox"]:checked')]
+    .map((option) => option.value);
+  input.value = [...selectedCommonModels, ...customModels].join(', ');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 });
 
 // Insert Manage LLM prompts button inside advanced parameters (one row alone)
@@ -801,11 +985,13 @@ async function loadSettings() {
     const settings = await response.json();
     savedSettings = settings || {};
     form.elements.openrouter_api_key.value = settings.openrouter_api_key || '';
+    form.elements.typesafe_api_key.value = settings.typesafe_api_key || '';
     form.elements.telegram_bot_token.value = settings.telegram_bot_token || '';
     form.elements.telegram_chat_id.value = settings.telegram_chat_id || '';
     $('#settings-state').textContent = 'Loaded';
     // Load runtime defaults and apply to forms
     try {
+      await loadRunFieldOptions();
       const dresp = await fetch('/api/defaults');
       const defaults = await dresp.json();
       function applyDefaultsToForm(formId, defs) {
@@ -849,6 +1035,10 @@ async function loadSettings() {
           // find key in defs: prefer map lookup, else use element name
           const key = Object.keys(map).find(k => map[k] === elName) || elName;
           const val = defs.hasOwnProperty(key) ? defs[key] : undefined;
+          if (el.multiple || ['inference_plugin', 'inference_skill'].includes(elName)) {
+            if (val !== undefined && val !== null) setFormFieldValue(el, val);
+            return;
+          }
           let displayValue;
           if (val === undefined || val === null) {
             displayValue = requiredFields.has(elName) ? 'required' : 'none';
@@ -904,9 +1094,7 @@ async function loadSettings() {
             // only populate the field value when there is a real default
             if (val !== undefined && val !== null) {
               if (el.tagName.toLowerCase() === 'select') {
-                // try to select matching option, otherwise set value directly
-                const opt = Array.from(el.options).find(o => o.value === displayValue || o.text === displayValue);
-                if (opt) el.value = opt.value; else el.value = displayValue;
+                setFormFieldValue(el, val);
               } else {
                 el.value = displayValue;
               }
@@ -932,6 +1120,8 @@ async function loadSettings() {
       }
       applyDefaultsToForm('#live-form', defaults);
       applyDefaultsToForm('#test-form', defaults);
+      document.querySelectorAll('#live-form [name="model_names"], #test-form [name="model_names"]')
+        .forEach(syncCommonModelCheckboxes);
     } catch (err) {
       console.warn('Could not load defaults:', err);
     }
@@ -955,7 +1145,43 @@ function splitModels(value) {
 }
 
 function splitPromptFiles(value) {
+  if (value instanceof HTMLSelectElement && value.multiple) {
+    return [...value.selectedOptions].map((option) => option.value).filter(Boolean);
+  }
   return String(value || '').split(/[\s,]+/).filter(Boolean);
+}
+
+function getSelectedFieldValues(field) {
+  if (field instanceof HTMLSelectElement && field.multiple) {
+    return [...field.selectedOptions].map((option) => option.value).filter(Boolean);
+  }
+  return String(field?.value || '').split(/[\s,]+/).filter(Boolean);
+}
+
+function setFormFieldValue(field, value) {
+  if (field instanceof HTMLSelectElement && field.multiple) {
+    const values = Array.isArray(value) ? value.map(String) : String(value || '').split(/[\s,]+/).filter(Boolean);
+    const selected = new Set(values);
+    [...field.options].forEach((option) => { option.selected = selected.has(option.value); });
+    return;
+  }
+  field.value = Array.isArray(value) ? value.join(', ') : String(value ?? '');
+}
+
+function formDataToObject(form) {
+  const data = Object.fromEntries(new FormData(form));
+  form.querySelectorAll('select[multiple][name]').forEach((select) => {
+    data[select.name] = getSelectedFieldValues(select).join(', ');
+  });
+  return data;
+}
+
+function clearFieldError(field) {
+  if (!field) return;
+  field.classList.remove('field-error');
+  field.closest('label')?.classList.remove('field-error-label');
+  field.setCustomValidity('');
+  field.title = field.dataset.defaultTitle || field.title || '';
 }
 
 function setFieldError(field, message) {
@@ -964,6 +1190,7 @@ function setFieldError(field, message) {
   field.closest('label')?.classList.toggle('field-error-label', Boolean(message));
   field.setCustomValidity(message || '');
   if (message) field.title = message;
+  else field.title = field.dataset.defaultTitle || field.title || '';
   return Boolean(message);
 }
 
@@ -977,6 +1204,14 @@ function validateParameters(form) {
   let valid = true;
   const modelNames = form.elements.model_names;
   const iterations = form.elements.iterations;
+  [
+    'model_names', 'iterations', 'prompt_files', 'confidence', 'gain_ratio', 'limit', 'quant_limit',
+    'quant_test_size', 'web_search_max_results', 'quant_shift', 'quant_predict_rows',
+    'quant_direction_threshold', 'step', 'n', 'max_expected_time', 'token_limit', 'input_token_price',
+    'output_token_price', 'max_cost', 'output_dir'
+  ].forEach((name) => {
+    if (form.elements[name]) clearFieldError(form.elements[name]);
+  });
   const models = splitModels(modelNames?.value);
   if (modelNames) {
     const hasDuplicateModels = new Set(models).size !== models.length;
@@ -991,9 +1226,15 @@ function validateParameters(form) {
         : '';
     valid = !setFieldError(iterations, message) && valid;
   }
-  if (!savedSettings.openrouter_api_key) {
-    valid = false;
-    $('#settings-state').textContent = 'API key required';
+  const inferencePlugin = String(form.elements.inference_plugin?.value || 'model').trim().toLowerCase();
+  const hasJevModel = models.some((model) => decisionModels.has(model.toLowerCase()));
+  if (inferencePlugin === 'model') {
+    const usesDirectJev = hasJevModel && Boolean(savedSettings.typesafe_api_key);
+    const needsOpenRouter = !usesDirectJev || models.some((model) => !decisionModels.has(model.toLowerCase()));
+    if (needsOpenRouter && !savedSettings.openrouter_api_key) {
+      valid = false;
+      $('#settings-state').textContent = 'OpenRouter API key required';
+    }
   }
   const webMaxResults = form.elements.web_search_max_results;
   if (webMaxResults) valid = !setFieldError(webMaxResults, fieldNumber(form, 'web_search_max_results', 1) < 1 ? 'Web max results must be at least 1.' : '') && valid;
@@ -1004,7 +1245,7 @@ function validateParameters(form) {
   const quantDirectionThreshold = form.elements.quant_direction_threshold;
   if (quantDirectionThreshold) valid = !setFieldError(quantDirectionThreshold, fieldNumber(form, 'quant_direction_threshold', 0.001) < 0 ? 'Direction threshold must be at least 0.' : '') && valid;
   if (form.id === 'live-form') {
-    const promptFiles = splitPromptFiles(form.elements.prompt_files?.value);
+    const promptFiles = splitPromptFiles(form.elements.prompt_files);
     const models = splitModels(form.elements.model_names?.value);
     if (promptFiles.length && promptFiles.length !== 1 && promptFiles.length !== models.length) {
       valid = !setFieldError(form.elements.prompt_files, 'Prompt files must be either one shared file or match the number of voting models.') && valid;
@@ -1026,7 +1267,7 @@ function validateParameters(form) {
       valid = !setFieldError(quantTestSize, value < 0.01 || value > 0.99 ? 'Quant test size must be between 0.01 and 0.99.' : '') && valid;
     }
   } else {
-    const promptFiles = splitPromptFiles(form.elements.prompt_files?.value);
+    const promptFiles = splitPromptFiles(form.elements.prompt_files);
     const models = splitModels(form.elements.model_names?.value);
     if (promptFiles.length && promptFiles.length !== 1 && promptFiles.length !== models.length) {
       valid = !setFieldError(form.elements.prompt_files, 'Prompt files must be either one shared file or match the number of voting models.') && valid;
@@ -1048,17 +1289,53 @@ function validateParameters(form) {
   return valid;
 }
 
+function updateFeatureRequirementNote(form) {
+  const note = form.querySelector('.feature-requirement-note');
+  if (!note) return;
+  const selectedPlugin = String(form.elements.inference_plugin?.value || 'model').trim().toLowerCase();
+  const selectedModels = splitModels(form.elements.model_names?.value).map((model) => model.toLowerCase());
+  const selectedPreprocessors = getSelectedFieldValues(form.elements.preprocessors)
+    .map((name) => name.toLowerCase());
+  const promptFiles = splitPromptFiles(form.elements.prompt_files)
+    .map((path) => path.replace(/\\/g, '/').toLowerCase().replace(/^\.?\//, ''));
+  const jevSelected = selectedPlugin === 'model'
+    && selectedModels.some((model) => decisionModels.has(model));
+  if (!jevSelected) {
+    note.textContent = 'Models and inference plugins may require specific market features. Add a suitable built-in or custom preprocessor, or choose a compatible inference plugin; otherwise, outputs may be limited or unusable.';
+    return;
+  }
+  const setupNotes = [];
+  if (!selectedPreprocessors.includes('fibonacci')) {
+    setupNotes.push('Jev’s current target workflow expects Fibonacci levels. Add the Fibonacci preprocessor or a custom preprocessor that supplies derived_features.fibonacci.');
+  }
+  const hasJevPrompt = promptFiles.some((path) => (
+    path === 'prompts/fibonacci_decision.txt'
+    || path.endsWith('/prompts/fibonacci_decision.txt')
+  ));
+  if (!hasJevPrompt) {
+    setupNotes.push('The default chat prompt is not suitable for Jev. Use prompts/fibonacci_decision.txt or a compatible custom Jev prompt.');
+  }
+  note.textContent = setupNotes.length
+    ? setupNotes.join(' ')
+    : 'Jev has its Fibonacci target features and recommended decision prompt configured.';
+}
+
 function setupModelVotingValidation() {
   document.querySelectorAll('#live-form, #test-form').forEach((form) => {
     ['model_names', 'iterations'].forEach((name) => {
-      form.elements.prompt_files?.addEventListener('input', () => validateParameters(form));
       form.elements[name]?.addEventListener('input', () => validateParameters(form));
       form.elements[name]?.addEventListener('change', () => validateParameters(form));
     });
+    form.elements.prompt_files?.addEventListener('change', () => validateParameters(form));
     ['confidence', 'gain_ratio', 'limit', 'quant_limit', 'quant_test_size', 'web_search_max_results', 'step', 'n', 'max_expected_time', 'token_limit', 'input_token_price', 'output_token_price', 'max_cost', 'output_dir', 'quant_shift', 'quant_predict_rows', 'quant_direction_threshold'].forEach((name) => {
       form.elements[name]?.addEventListener('input', () => validateParameters(form));
       form.elements[name]?.addEventListener('change', () => validateParameters(form));
     });
+    ['inference_plugin', 'model_names', 'preprocessors', 'prompt_files'].forEach((name) => {
+      form.elements[name]?.addEventListener('input', () => updateFeatureRequirementNote(form));
+      form.elements[name]?.addEventListener('change', () => updateFeatureRequirementNote(form));
+    });
+    updateFeatureRequirementNote(form);
     validateParameters(form);
   });
 }
@@ -1067,7 +1344,7 @@ setupModelVotingValidation();
 $('#settings-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  const data = Object.fromEntries(new FormData(form));
+  const data = formDataToObject(form);
   try {
     const response = await fetch('/api/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
     const result = await response.json();
@@ -1137,7 +1414,7 @@ $('#test-manage-prompts')?.addEventListener('click', () => setActiveTab('prompts
 $('#prompt-file-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  const data = Object.fromEntries(new FormData(form));
+  const data = formDataToObject(form);
   const name = String(data.name || '').trim();
   if (!name) {
     return toast('Please enter a prompt file name before saving.');
@@ -1167,6 +1444,80 @@ $('#prompt-file-clear')?.addEventListener('click', () => {
 let promptFiles = [];
 let selectedPromptFile = '';
 
+function populateSelectOptions(select, values, selectedValues = []) {
+  const selected = new Set(selectedValues.map(String));
+  select.replaceChildren(...values.map((value) => {
+    const optionValue = typeof value === 'string' ? value : value.value;
+    const option = document.createElement('option');
+    option.value = optionValue;
+    option.textContent = typeof value === 'string' ? value : value.label;
+    option.selected = selected.has(optionValue);
+    return option;
+  }));
+  if (!select.multiple && ![...select.options].some((option) => option.selected) && select.options.length) {
+    select.options[0].selected = true;
+  }
+}
+
+function populateRunOptionSelectors() {
+  const inferencePlugins = [...new Set([
+    'model',
+    ...extensionCatalog.filter((item) => item.kind === 'inference').map((item) => item.name),
+  ])];
+  const skills = [...new Set(['default', ...extensionCatalog.filter((item) => item.kind === 'skill').map((item) => item.name)])];
+  const preprocessors = [...new Set(extensionCatalog.filter((item) => item.kind === 'preprocessor').map((item) => item.name))];
+  const promptOptions = promptFiles.map((name) => ({ value: `prompts/${name}`, label: name }));
+
+  document.querySelectorAll('#live-form, #test-form').forEach((form) => {
+    const pluginSelect = form.elements.inference_plugin;
+    const skillSelect = form.elements.inference_skill;
+    const preprocessorSelect = form.elements.preprocessors;
+    const promptSelect = form.elements.prompt_files;
+    const currentPlugin = pluginSelect.value || 'model';
+    const currentSkill = skillSelect.value || 'default';
+    const currentPreprocessors = getSelectedFieldValues(preprocessorSelect);
+    const currentPrompts = getSelectedFieldValues(promptSelect);
+    populateSelectOptions(pluginSelect, inferencePlugins, [currentPlugin]);
+    populateSelectOptions(skillSelect, skills, [currentSkill]);
+    populateSelectOptions(preprocessorSelect, preprocessors, currentPreprocessors);
+    populateSelectOptions(promptSelect, promptOptions, currentPrompts);
+  });
+}
+
+async function loadRunFieldOptions() {
+  try {
+    const [extensionsResponse, promptsResponse] = await Promise.all([
+      fetch('/api/extensions'),
+      fetch('/api/prompt-files'),
+    ]);
+    if (!extensionsResponse.ok || !promptsResponse.ok) {
+      throw new Error('The dashboard option catalog could not be loaded.');
+    }
+    const [extensions, prompts] = await Promise.all([
+      extensionsResponse.json(),
+      promptsResponse.json(),
+    ]);
+    extensionCatalog = Array.isArray(extensions.extensions) ? extensions.extensions : [];
+    promptFiles = Array.isArray(prompts.files) ? prompts.files : [];
+    populateRunOptionSelectors();
+    renderExtensions();
+    renderPromptFileList();
+    renderPromptModelSummary();
+    document.querySelectorAll('.run-option-status').forEach((status) => {
+      status.textContent = `Loaded ${inferencePluginCount()} inference plugins, ${extensionCatalog.filter((item) => item.kind === 'skill').length} skills, ${extensionCatalog.filter((item) => item.kind === 'preprocessor').length} preprocessors, and ${promptFiles.length} prompts.`;
+    });
+  } catch (error) {
+    console.warn('Could not load dashboard choices:', error);
+    document.querySelectorAll('.run-option-status').forEach((status) => {
+      status.textContent = 'Could not load available choices. Check the dashboard server and reload.';
+    });
+  }
+}
+
+function inferencePluginCount() {
+  return new Set(['model', ...extensionCatalog.filter((item) => item.kind === 'inference').map((item) => item.name)]).size;
+}
+
 async function loadPromptFiles() {
   try {
     const response = await fetch('/api/prompt-files');
@@ -1176,6 +1527,7 @@ async function loadPromptFiles() {
     console.warn('Could not load prompt files', error);
     promptFiles = [];
   }
+  populateRunOptionSelectors();
   renderPromptFileList();
   renderPromptModelSummary();
 }
@@ -1267,7 +1619,7 @@ function getDefaultPromptLabel() {
 }
 
 function buildConfigPayload(form, overrideName = '') {
-  const data = Object.fromEntries(new FormData(form));
+  const data = formDataToObject(form);
   const resolvedPrompt = data.prompt_files || selectedPromptFile || getDefaultPromptValue();
   const name = overrideName || $('#test-config-label')?.textContent?.replace(/^Config:\s*/i, '') || createConfigLabel('TEST');
   const payload = {
@@ -1275,6 +1627,9 @@ function buildConfigPayload(form, overrideName = '') {
     symbols: data.symbols || '',
     interval: data.interval || '',
     limit: data.limit || '',
+    inference_plugin: data.inference_plugin || 'model',
+    inference_skill: data.inference_skill || 'default',
+    preprocessors: data.preprocessors || 'none',
     model_names: data.model_names || '',
     prompt_files: resolvedPrompt,
     prompt: resolvedPrompt,
@@ -1297,9 +1652,7 @@ async function loadSavedConfigsFromServer() {
     if (!response.ok) return getSavedConfigs();
     const data = await response.json();
     const configs = Array.isArray(data.configs) ? data.configs : [];
-    if (configs.length) {
-      localStorage.setItem('saved-configs', JSON.stringify(configs));
-    }
+    localStorage.setItem('saved-configs', JSON.stringify(configs));
     return configs;
   } catch {
     return getSavedConfigs();
@@ -1364,6 +1717,8 @@ function normalizeConfigResult(result = {}) {
     business_metrics: business,
     llm_consensus: llmConsensus,
     llm_performance: llmPerformance,
+    model_brier_scores: result.model_brier_scores || {},
+    inference_latency_by_model: result.inference_latency_by_model || {},
   };
   return snapshot;
 }
@@ -1374,6 +1729,8 @@ function buildBacktestResultSnapshot(backtest) {
   const business = data.business_metrics || {};
   const llmConsensus = data.llm_consensus || {};
   const llmPerformance = data.llm_performance || {};
+  const modelBrierScores = aggregateModelBrierScores(backtest);
+  const inferenceLatencyByModel = backtest.inference_latency_by_model || {};
   return normalizeConfigResult({
     symbol,
     trades: data.total_trades || 0,
@@ -1407,8 +1764,38 @@ function buildBacktestResultSnapshot(backtest) {
     business_metrics: business,
     llm_consensus: llmConsensus,
     llm_performance: llmPerformance,
+    model_brier_scores: modelBrierScores,
+    inference_latency_by_model: inferenceLatencyByModel,
+    llm_models: data.llm_models || Object.keys(modelBrierScores),
     saved_at: new Date().toISOString(),
   });
+}
+
+function renderSavedModelMetrics(result) {
+  const brierScores = result.model_brier_scores || {};
+  const latencies = result.inference_latency_by_model || {};
+  const modelNames = [...new Set([...Object.keys(brierScores), ...Object.keys(latencies)])].sort();
+  if (!modelNames.length) return '';
+  return modelNames.map((modelName) => {
+    const brier = brierScores[modelName] || {};
+    const latency = latencies[modelName] || {};
+    const brierValue = brier.brier_score == null || !Number.isFinite(Number(brier.brier_score))
+      ? '—'
+      : Number(brier.brier_score).toFixed(4);
+    const scoredWindows = Number(brier.scored_windows || 0);
+    const meanLatency = latency.mean_seconds == null ? '—' : formatInferenceLatency(latency.mean_seconds);
+    const medianLatency = latency.median_seconds == null ? '—' : formatInferenceLatency(latency.median_seconds);
+    const p95Latency = latency.p95_seconds == null ? '—' : formatInferenceLatency(latency.p95_seconds);
+    const requestCount = Number(latency.request_count || 0);
+    const safeModelName = String(modelName).replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[character]);
+    return `<div>${safeModelName} · Brier: ${brierValue} (${scoredWindows} scored) · Average inference: ${meanLatency} · Median: ${medianLatency} · P95: ${p95Latency} (${requestCount} calls)</div>`;
+  }).join('');
 }
 
 function getConfigSignature(config = {}) {
@@ -1438,7 +1825,7 @@ function attachTestResultToConfig(configName, result, configPayload = null) {
     nextConfigs = configs.map((config, index) => {
       if (index !== existingIndex) return config;
       const previousResults = Array.isArray(config.test_results) ? config.test_results : [];
-      const duplicateResult = previousResults.some((entry) => {
+      const duplicateIndex = previousResults.findIndex((entry) => {
         const current = normalizeConfigResult(entry);
         return current.symbol === normalized.symbol &&
           Number(current.trades || 0) === Number(normalized.trades || 0) &&
@@ -1446,7 +1833,9 @@ function attachTestResultToConfig(configName, result, configPayload = null) {
           Number(current.max_drawdown || 0) === Number(normalized.max_drawdown || 0) &&
           Number(current.win_rate || 0) === Number(normalized.win_rate || 0);
       });
-      const mergedResults = duplicateResult ? previousResults : [...previousResults, normalized];
+      const mergedResults = duplicateIndex >= 0
+        ? previousResults.map((entry, resultIndex) => resultIndex === duplicateIndex ? normalized : entry)
+        : [...previousResults, normalized];
       return {
         ...config,
         ...baseConfig,
@@ -1485,6 +1874,9 @@ function renderSavedConfigs() {
   container.innerHTML = configs.map((config, index) => {
     const promptValue = config.prompt || config.prompt_files || getDefaultPromptValue();
     const promptLabel = promptValue === getDefaultPromptValue() ? getDefaultPromptLabel() : promptValue;
+    const inferencePlugin = config.inference_plugin === 'llm'
+      ? 'model'
+      : config.inference_plugin || 'model';
     const result = config.last_test_result || null;
     const history = Array.isArray(config.test_results) ? config.test_results : result ? [result] : [];
     const resultBlock = result ? `
@@ -1492,6 +1884,7 @@ function renderSavedConfigs() {
         <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8ae4ff;margin-bottom:4px;">Latest test result</div>
         <div style="font-size:12px;line-height:1.6;">
           <strong>${result.symbol || '—'}</strong> · ${result.trades || 0} trades · ${(Number(result.win_rate || result.success_rate || 0) * 100).toFixed(1)}% win · ${Number(result.total_return || 0).toFixed(2)}% return
+          ${renderSavedModelMetrics(result)}
         </div>
       </div>
     ` : '';
@@ -1504,13 +1897,14 @@ function renderSavedConfigs() {
           <div>Buy & hold: ${Number(entry.buy_and_hold_return || 0).toFixed(2)}% · Profit factor: ${Number(entry.profit_factor || 0).toFixed(2)} · Max DD: ${Number(entry.max_drawdown || 0).toFixed(2)}%</div>
           <div>Agreement: ${(Number(entry.agreement_ratio || 0) * 100).toFixed(1)}% · Accuracy: ${(Number(entry.direction_accuracy || 0) * 100).toFixed(1)}% · Stability: ${(Number(entry.decision_stability || 0) * 100).toFixed(1)}%</div>
           <div>Range: ${entry.candle_range || entry.actual_start || '—'}${entry.actual_end ? ` → ${entry.actual_end}` : ''} · Tokens: ${Number(entry.total_tokens || 0).toFixed(0)}</div>
+          ${renderSavedModelMetrics(entry)}
         </div>
       </div>
     `).join('') : '<div style="color:#8896a8;margin-top:8px;">No test results saved yet.</div>';
     const detailEntries = Object.entries(config)
       .filter(([key]) => !['last_test_result', 'test_results'].includes(key))
       .filter(([, value]) => value !== undefined && value !== null && value !== '')
-      .map(([key, value]) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid rgba(148,163,184,.18);"><span style="color:#8896a8;">${key}</span><span style="text-align:right;word-break:break-word;">${String(value)}</span></div>`)
+      .map(([key, value]) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid rgba(148,163,184,.18);"><span style="color:#8896a8;">${key}</span><span style="text-align:right;word-break:break-word;">${String(key === 'inference_plugin' && value === 'llm' ? 'model' : value)}</span></div>`)
       .join('');
     return `
     <div style="padding:10px 0;border-bottom:1px solid #262f3b;${result ? 'background:rgba(72,187,120,.06);border-left:2px solid #5eead4;padding-left:10px;' : ''}">
@@ -1520,7 +1914,7 @@ function renderSavedConfigs() {
             <span>${config.name || `Config ${index + 1}`}</span>
             ${result ? '<span style="display:inline-block;padding:3px 7px;border-radius:999px;background:rgba(94,234,212,.12);color:#8cf0d7;border:1px solid rgba(94,234,212,.45);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Test</span>' : ''}
           </div>
-          <div style="font-size:12px;opacity:.72;">${config.symbols || '—'} · ${promptLabel} · ${config.model_names || 'No model'} · ${config.interval || '—'}</div>
+          <div style="font-size:12px;opacity:.72;">${config.symbols || '—'} · ${inferencePlugin} / ${config.inference_skill || 'default'} · features: ${config.preprocessors || 'none'} · ${promptLabel} · ${config.model_names || 'No model'} · ${config.interval || '—'}</div>
         </div>
         <div>
           <button type="button" data-config-index="${index}" data-config-action="load" class="primary" style="margin-right:6px;">Load</button>
@@ -1557,12 +1951,9 @@ function renderSavedConfigs() {
           if (['last_test_result', 'test_results'].includes(key)) return;
           if (!testForm.elements[key]) return;
           const field = testForm.elements[key];
-          if (field.tagName === 'SELECT') {
-            field.value = String(value || '');
-          } else {
-            field.value = String(value || '');
-          }
+          setFormFieldValue(field, key === 'inference_plugin' && value === 'llm' ? 'model' : value);
         });
+        syncCommonModelCheckboxes(testForm.elements.model_names);
         $('#test-config-label').textContent = `Config: ${config.name || 'SAVED'}`;
         setActiveTab('test');
       } else {
@@ -1585,6 +1976,8 @@ function syncLiveConfigToTest() {
     const target = testForm.elements[field.name];
     if (field.type === 'checkbox') {
       target.checked = field.checked;
+    } else if (field instanceof HTMLSelectElement && field.multiple) {
+      setFormFieldValue(target, getSelectedFieldValues(field));
     } else {
       target.value = field.value;
     }
@@ -1614,7 +2007,147 @@ function setActiveTab(tabName) {
   if (button) button.classList.add('active');
   if (page) page.classList.add('active');
   if (tabName === 'prompts') loadPromptFiles();
+  if (tabName === 'extensions') loadExtensions();
 }
+
+let extensionCatalog = [];
+let extensionFilter = 'all';
+
+function renderExtensions() {
+  const list = $('#extension-list');
+  const count = $('#extension-count');
+  if (!list || !count) return;
+  const query = ($('#extension-search')?.value || '').trim().toLowerCase();
+  const matches = extensionCatalog.filter((item) => {
+    const matchesFilter = extensionFilter === 'all' || item.kind === extensionFilter;
+    const haystack = `${item.name} ${item.kind} ${item.description} ${item.compatibility} ${item.readme}`.toLowerCase();
+    return matchesFilter && haystack.includes(query);
+  });
+  count.textContent = `${matches.length} of ${extensionCatalog.length} available`;
+  list.replaceChildren();
+  if (!matches.length) {
+    const empty = document.createElement('section');
+    empty.className = 'card extension-empty';
+    empty.textContent = extensionCatalog.length ? 'No extensions match your search.' : 'No extensions are currently available.';
+    list.append(empty);
+    return;
+  }
+
+  matches.forEach((item) => {
+    const card = document.createElement('article');
+    card.className = 'card extension-card';
+    const heading = document.createElement('div');
+    heading.className = 'extension-card-heading';
+    const title = document.createElement('h3');
+    title.textContent = item.name;
+    const kind = document.createElement('span');
+    kind.className = 'badge';
+    kind.textContent = item.kind === 'preprocessor' ? 'Preprocessing' : item.kind === 'inference' ? 'Inference' : 'Skill';
+    heading.append(title, kind);
+
+    const description = document.createElement('p');
+    description.className = 'extension-description';
+    description.textContent = item.description || 'No description provided.';
+    const compatibility = document.createElement('p');
+    compatibility.className = 'extension-compatibility';
+    compatibility.textContent = `Works with: ${item.compatibility || 'Compatibility not specified.'}`;
+    card.append(heading, description, compatibility);
+
+    if (item.readme) {
+      const details = document.createElement('details');
+      details.className = 'extension-docs';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Read documentation';
+      const content = document.createElement('pre');
+      content.textContent = item.readme;
+      details.append(summary, content);
+      card.append(details);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'extension-actions';
+    ['live', 'test'].forEach((mode) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary';
+      button.textContent = `Use in ${mode === 'live' ? 'Live' : 'Test'}`;
+      button.addEventListener('click', () => applyExtensionToRun(item, mode));
+      actions.append(button);
+    });
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'text-button';
+    copy.textContent = 'Copy CLI option';
+    copy.addEventListener('click', () => copyExtensionOption(item));
+    actions.append(copy);
+    card.append(actions);
+    list.append(card);
+  });
+}
+
+async function loadExtensions() {
+  const list = $('#extension-list');
+  if (!list) return;
+  list.textContent = 'Loading extension catalog…';
+  try {
+    const response = await fetch('/api/extensions');
+    if (!response.ok) throw new Error('Extension catalog request failed.');
+    const payload = await response.json();
+    extensionCatalog = Array.isArray(payload.extensions) ? payload.extensions : [];
+    populateRunOptionSelectors();
+    renderExtensions();
+  } catch {
+    list.textContent = 'Could not load extensions. Check that the dashboard server is running, then reopen this tab.';
+    $('#extension-count').textContent = 'Catalog unavailable';
+  }
+}
+
+function applyExtensionToRun(item, mode) {
+  const formId = mode === 'live' ? '#live-form' : '#test-form';
+  const form = $(formId);
+  if (!form) return;
+  const fieldName = item.kind === 'inference' ? 'inference_plugin' : item.kind === 'skill' ? 'inference_skill' : 'preprocessors';
+  const field = form.elements[fieldName];
+  if (!field) return;
+  if (item.kind === 'preprocessor') {
+    const current = getSelectedFieldValues(field);
+    if (!current.includes(item.name)) current.push(item.name);
+    setFormFieldValue(field, current);
+  } else {
+    setFormFieldValue(field, item.name);
+  }
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+  updateFeatureRequirementNote(form);
+  form.querySelector('.advanced-parameters')?.setAttribute('open', '');
+  setActiveTab(mode);
+  form.scrollIntoView({behavior: 'smooth', block: 'center'});
+  toast(`${item.name} selected for ${mode === 'live' ? 'Live' : 'Test'}.`);
+}
+
+async function copyExtensionOption(item) {
+  const option = item.kind === 'inference'
+    ? `--inference-plugin ${item.name}`
+    : item.kind === 'skill'
+      ? `--inference-skill ${item.name}`
+      : `--preprocessors ${item.name}`;
+  try {
+    await navigator.clipboard.writeText(option);
+    toast('CLI option copied.');
+  } catch {
+    toast(option);
+  }
+}
+
+$('#extension-search')?.addEventListener('input', renderExtensions);
+document.querySelectorAll('[data-extension-filter]').forEach((button) => {
+  button.addEventListener('click', () => {
+    extensionFilter = button.dataset.extensionFilter || 'all';
+    document.querySelectorAll('[data-extension-filter]').forEach((filter) => {
+      filter.classList.toggle('active', filter === button);
+    });
+    renderExtensions();
+  });
+});
 
 $('#ml-export')?.addEventListener('click', async () => {
   try {
@@ -1632,8 +2165,9 @@ document.querySelectorAll('#live-form, #test-form').forEach((form) => form.addEv
     toast('Please fix highlighted parameters before running.');
     return;
   }
-  const data = Object.fromEntries(new FormData(form));
+  const data = formDataToObject(form);
   data.symbols = (data.symbols || '').split(/[\s,]+/).filter(Boolean);
+  data.preprocessors = data.preprocessors || 'none';
   data.mode = form.id === 'test-form' ? 'backtest' : 'live';
   data.quant_enabled = form.elements.quant_enabled?.checked || form.elements.quant?.checked || false;
   data.web_search_enabled = form.elements.web_search_enabled?.checked || form.elements.web?.checked || false;
@@ -1710,9 +2244,39 @@ function chart(candles){
   `;
 }
 
-function setTest(backtest){const symbol=Object.keys(backtest.symbols||{})[0],data=backtest.symbols?.[symbol];if(!data)return;const business=data.business_metrics||{};const signedWinRate=(data.success_rate||0)*(Number(data.total_return||0)<0?-1:1);const vals=[data.total_trades,`${(signedWinRate*100).toFixed(1)}%`,`${fmt(data.total_return)}%`,`${fmt(business.max_drawdown)}%`];document.querySelectorAll('#test-metrics strong').forEach((el,i)=>{if(i<vals.length)el.textContent=vals[i]});$('#summary').innerHTML=`<div class="summary-row" title="Saved backtest market."><p><span>Symbol:</span> <b>${symbol}</b></p></div><div class="summary-row" title="Holding from start to end."><p><span>Buy & hold:</span> <b>${fmt(data.buy_and_hold_return)}%</b></p></div><div class="summary-row" title="Strategy return versus holding."><p><span>Outperformance:</span> <b>${fmt(data.outperformance)}%</b></p></div><div class="summary-row" title="Token usage:"><p><span>Token usage:</span> <b>${fmt(data.total_tokens,0)}</b></p></div>`;const testForm = $('#test-form');const configName = ($('#test-config-label')?.textContent || '').replace(/^Config:\s*/i, '').trim() || 'TEST';const configPayload = testForm ? buildConfigPayload(testForm, configName) : { name: configName };attachTestResultToConfig(configName, buildBacktestResultSnapshot(backtest), configPayload);toast('Test complete. Config saved to Configs tab.', 2200)}
+function setTest(backtest) {
+  renderModelBrierScores(backtest);
+  renderInferenceLatency(backtest);
+  const symbol = Object.keys(backtest.symbols || {})[0];
+  const data = backtest.symbols?.[symbol];
+  if (!data) return;
+  const business = data.business_metrics || {};
+  const signedWinRate = (data.success_rate || 0) * (Number(data.total_return || 0) < 0 ? -1 : 1);
+  const values = [
+    data.total_trades,
+    `${(signedWinRate * 100).toFixed(1)}%`,
+    `${fmt(data.total_return)}%`,
+    `${fmt(business.max_drawdown)}%`,
+  ];
+  document.querySelectorAll('#test-metrics strong').forEach((element, index) => {
+    if (index < values.length) element.textContent = values[index];
+  });
+  $('#summary').innerHTML = `<div class="summary-row" title="Saved backtest market."><p><span>Symbol:</span> <b>${symbol}</b></p></div><div class="summary-row" title="Holding from start to end."><p><span>Buy & hold:</span> <b>${fmt(data.buy_and_hold_return)}%</b></p></div><div class="summary-row" title="Strategy return versus holding."><p><span>Outperformance:</span> <b>${fmt(data.outperformance)}%</b></p></div><div class="summary-row" title="Token usage:"><p><span>Token usage:</span> <b>${fmt(data.total_tokens, 0)}</b></p></div>`;
+  const testForm = $('#test-form');
+  const configName = ($('#test-config-label')?.textContent || '').replace(/^Config:\s*/i, '').trim() || 'TEST';
+  const configPayload = testForm ? buildConfigPayload(testForm, configName) : {name: configName};
+  const resultSnapshot = buildBacktestResultSnapshot(backtest);
+  const configuredModels = splitModels(configPayload.model_names).map((name) => name.toLowerCase()).sort();
+  const resultModels = (resultSnapshot.llm_models || []).map((name) => String(name).toLowerCase()).sort();
+  if (configuredModels.length && resultModels.length &&
+      configuredModels.length === resultModels.length &&
+      configuredModels.every((name, index) => name === resultModels[index])) {
+    attachTestResultToConfig(configName, resultSnapshot, configPayload);
+    toast('Test complete. Config saved to Configs tab.', 2200);
+  }
+}
 async function refresh(){try{const r=await fetch('/api/dashboard');const d=await r.json(),m=d.market,s=d.status;$('#connection').textContent=s.running?'Running':'Online';$('#symbol').textContent=m.symbol;$('#interval').textContent=m.interval;$('#updated').textContent=m.updated_at||'—';$('#price').textContent=m.price?`$${fmt(m.price, 10)}`:'—';$('#rsi').textContent=fmt(m.rsi, 10);$('#macd').textContent=fmt(m.macd, 10);$('#forecast').textContent=d.quant?.predictions?.[0]?`$${fmt(d.quant.predictions[0])}`:'—';$('#news-count').textContent=d.news?.length||0;$('#log').textContent=s.log?.join('\n')||'Waiting for a run…';scrollLogToBottom($('#log'));$('#run-state').textContent=s.running?'Running':'Idle';chart(m.candles);setTest(d.backtest)}catch(e){$('#connection').textContent='Offline'}}
-document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.tab,.page').forEach(el=>el.classList.remove('active'));button.classList.add('active');$('#'+button.dataset.tab).classList.add('active');if(button.dataset.tab==='test' && !testRunStarted) clearTestPage();}));
+document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click',()=>{setActiveTab(button.dataset.tab);if(button.dataset.tab==='test' && !testRunStarted) clearTestPage();}));
 $('#save-and-test-configs')?.addEventListener('click', () => {
   syncLiveConfigToTest();
   setActiveTab('test');

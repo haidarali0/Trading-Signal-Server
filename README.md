@@ -37,12 +37,30 @@ The following are observed results from this project's saved BTCUSDT, 1-hour, 40
 
 | Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency | Total tokens | Output tokens | Agreement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Qwen alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call | 1,526,743 | 11,181 | 97.0% |
-| GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call | 1,093,009 | 40,129 | 62.9% |
-| **Jev 1.14 alone, 2 calls/window** | **63.0%** | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** | 1,534,862 | **6,976** | **96.9%** |
-| GPT-6 Luna + Jev 1.14, 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s | 1,387,123 | 24,861 | 68.6% |
+| Qwen alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call | 1,526,743 | 11,181 | **97.0%** |
+| GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call | **1,093,009** | 40,129 | 62.9% |
+| Jev 1.14 alone, 2 calls/window | 63.0% | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** | 1,534,862 | **6,976** | 96.9% |
+| GPT-6 Luna + Jev 1.14 hybrid (optimized call mix: replaces GPT's second call), 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s | 1,387,123 | 24,861 | 68.6% |
 
-In these saved tests, Jev's clearest standalone strengths are **speed**, a higher observed win rate than the tested chat models, and high repeat-call direction agreement. Jev also used 82.6% fewer output tokens than GPT-6 Luna in these runs, but its recorded total token count was about 40.4% higher; this data does **not** show lower overall token usage. The saved dollar-cost field is zero for all these runs, so a cost reduction cannot be calculated from them. Agreement is repeat-call direction consistency for standalone runs; for GPT + Jev it is the fraction of windows where the two models agreed. The GPT + Jev run had the strongest observed ensemble return and win rate, while adding a much faster Jev call instead of a second GPT call. This is promising evidence that Jev can complement GPT; it does not prove that Jev caused the improvement or will outperform on future data. The hybrid result is from the agreement strategy, and its individual model Brier scores do not represent individual strategy returns. Samples are limited, ambiguous outcomes were excluded from Brier, and returns do not include fees or slippage.
+Bold marks only the best value in each metric column (lower is better for Brier, latency, and token counts). Token totals are per saved run, not normalized by calls or windows. Standalone agreement is repeat-call direction consistency; hybrid agreement is the fraction of windows where GPT and Jev agreed, so these agreement figures are not directly comparable.
+
+### GPT + Jev hybrid compared with GPT alone
+
+The optimized call-mix variant replaces the second GPT call in each window with one Jev call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. The hybrid run covers a slightly shifted candle range (two candles later at both ends), and its overall token count includes both models.
+
+| Metric | GPT alone, 2 GPT calls/window | GPT + Jev, 1 call/model/window | Observed difference |
+| --- | ---: | ---: | ---: |
+| Win rate | 55.0% | 77.3% | +22.3 percentage points |
+| Strategy return | +1.01% | +2.69% | +1.68 percentage points |
+| Outperformance vs. buy-and-hold | +9.34 pp | +10.14 pp | +0.80 percentage points |
+| GPT trade-success Brier | 0.214 (32) | 0.266 (34) | +0.052; worse calibration in the hybrid run |
+| GPT mean latency per call | 12.35 s | 10.81 s | 1.54 s lower; Jev adds a 2.32 s/call request |
+| Total tokens, all models | 1,093,009 | 1,387,123 | +294,114 (+26.9%); not a total-token reduction |
+| Output tokens, all models | 40,129 | 24,861 | 15,268 fewer (-38.0%); hybrid total includes Jev output |
+
+The saved dollar-cost field is zero for these runs, so they do not establish any price or cost savings. Total-token and output-token totals are not per-model in the hybrid record, and the changed model mix and candle range limit direct efficiency comparisons. The hybrid did have higher observed win rate and return in this sample, but it does not prove Jev caused the change or will improve future results. Samples are limited, and returns exclude fees and slippage.
+
+In these saved tests, Jev's clearest standalone strengths are speed and high repeat-call direction agreement. The hybrid had the strongest observed ensemble return and win rate, but its GPT Brier score was higher (worse) than GPT alone. The result is promising evidence that Jev may complement GPT, not a guarantee of future performance. Hybrid returns belong to the combined agreement strategy; individual model Brier scores do not represent individual strategy returns. Ambiguous outcomes were excluded from Brier.
 
 For a stronger comparison, keep the same symbol, interval, candles, horizon, preprocessor, risk rules, and prompt-to-model order. Review each model's Brier score together with its scored/excluded window counts, and review hybrid returns separately from standalone returns.
 

@@ -58,7 +58,7 @@ The optimized call-mix variant replaces the second GPT call in each window with 
 | Output tokens, all models (full run) | 40,129 | 24,861 | 15,268 fewer (-38.0%); hybrid total includes Jev output |
 | Average output tokens per inference request | 573 per GPT request | 355 averaged across GPT and Jev requests | 218 fewer (-38.0%); hybrid average mixes two models |
 
-The saved dollar-cost field is zero for these runs, so they do not establish any price or cost savings. Output-token totals are not per-model in the hybrid record, and the changed model mix and candle range limit direct efficiency comparisons. The hybrid did have higher observed win rate and return in this sample, but it does not prove Jev caused the change or will improve future results. Samples are limited, and returns exclude fees and slippage.
+The hybrid did have higher observed win rate and return in this sample, but it does not prove Jev caused the change or will improve future results. Samples are limited, and returns exclude fees and slippage.
 
 In these saved tests, Jev's clearest standalone strengths are speed and high repeat-call direction agreement. The hybrid had the strongest observed ensemble return and win rate, but its GPT Brier score was higher (worse) than GPT alone. The result is promising evidence that Jev may complement GPT, not a guarantee of future performance. Hybrid returns belong to the combined agreement strategy; individual model Brier scores do not represent individual strategy returns. Ambiguous outcomes were excluded from Brier.
 

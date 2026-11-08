@@ -33,7 +33,7 @@ Unlike a chat model that generates a JSON signal, Jev selects from typed decisio
 
 ### Saved backtest results
 
-The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call. Token columns show the totals recorded for each saved run, not per-call usage.
+The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call. Token columns are totals across each complete backtest run, including every test window and both configured inference iterations per window; they are not per-call counts.
 
 | Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency | Total tokens | Output tokens | Agreement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -46,7 +46,7 @@ Bold marks only the best value in each metric column (lower is better for Brier,
 
 ### GPT + Jev hybrid compared with GPT alone
 
-The optimized call-mix variant replaces the second GPT call in each window with one Jev call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. The hybrid run covers a slightly shifted candle range (two candles later at both ends), and its overall token count includes both models.
+The optimized call-mix variant replaces the second GPT call in each window with one Jev call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. Both saved runs contain 35 test windows and 70 inference requests: GPT alone makes two GPT requests per window; the hybrid makes one GPT and one Jev request per window. Thus the usage totals below cover both iterations across the full run, not a single call. The hybrid run covers a slightly shifted candle range (two candles later at both ends), and its overall token count includes both models.
 
 | Metric | GPT alone, 2 GPT calls/window | GPT + Jev, 1 call/model/window | Observed difference |
 | --- | ---: | ---: | ---: |
@@ -55,8 +55,10 @@ The optimized call-mix variant replaces the second GPT call in each window with 
 | Outperformance vs. buy-and-hold | +9.34 pp | +10.14 pp | +0.80 percentage points |
 | GPT trade-success Brier | 0.214 (32) | 0.266 (34) | +0.052; worse calibration in the hybrid run |
 | GPT mean latency per call | 12.35 s | 10.81 s | 1.54 s lower; Jev adds a 2.32 s/call request |
-| Total tokens, all models | 1,093,009 | 1,387,123 | +294,114 (+26.9%); not a total-token reduction |
-| Output tokens, all models | 40,129 | 24,861 | 15,268 fewer (-38.0%); hybrid total includes Jev output |
+| Total tokens, all models (full run) | 1,093,009 | 1,387,123 | +294,114 (+26.9%); not a total-token reduction |
+| Average total tokens per inference request | 15,614 per GPT request | 19,816 averaged across GPT and Jev requests | +4,202 (+26.9%); hybrid average mixes two models |
+| Output tokens, all models (full run) | 40,129 | 24,861 | 15,268 fewer (-38.0%); hybrid total includes Jev output |
+| Average output tokens per inference request | 573 per GPT request | 355 averaged across GPT and Jev requests | 218 fewer (-38.0%); hybrid average mixes two models |
 
 The saved dollar-cost field is zero for these runs, so they do not establish any price or cost savings. Total-token and output-token totals are not per-model in the hybrid record, and the changed model mix and candle range limit direct efficiency comparisons. The hybrid did have higher observed win rate and return in this sample, but it does not prove Jev caused the change or will improve future results. Samples are limited, and returns exclude fees and slippage.
 

@@ -54,7 +54,7 @@ The optimized call-mix variant replaces the second GPT call in each window with 
 | Strategy return | +1.01% | +2.69% | +1.68 percentage points |
 | Outperformance vs. buy-and-hold | +9.34 pp | +10.14 pp | +0.80 percentage points |
 | GPT trade-success Brier | 0.214 (32) | 0.266 (34) | +0.052; worse calibration in the hybrid run |
-| GPT mean latency per call | 12.35 s | 10.81 s | 1.54 s lower; Jev adds a 2.32 s/call request |
+| Mean inference time per window | 24.70 s (2 GPT calls) | 13.13 s (1 GPT + 1 Jev call) | 11.57 s lower (-46.8%) |
 | Output tokens, all models (full run) | 40,129 | 24,861 | 15,268 fewer (-38.0%); hybrid total includes Jev output |
 | Average output tokens per inference request | 573 per GPT request | 355 averaged across GPT and Jev requests | 218 fewer (-38.0%); hybrid average mixes two models |
 

@@ -20,9 +20,7 @@ Version 2 expands the project with selectable inference and preprocessing plugin
 - **Inference plugins and preprocessors:** selectable inference backends, plus `none`, `fibonacci`, and `price_change` feature preprocessors.
 - **Prompt skills:** optional reusable guidance such as `default`, `risk_first`, and `market_structure`, applied in addition to the selected model-compatible prompt.
 - **Easy extension points:** users can add a documented skill folder; developers can implement and select custom inference or preprocessing plugins without changing the core dispatch flow.
-- **Model-specific prompt pairing:** chat models use JSON-output prompts; Jev uses typed-choice prompts. Backtests can map prompts to models by list position.
 - **Backtest comparison metrics:** per-model trade-success Brier scores with scored/excluded window counts, and inference latency with request count, mean, median, and p95.
-- **Dashboard experiment workflow:** save configurations and test results, then review prompt/model settings and performance metrics.
 
 ### Jev Fibonacci workflow
 
@@ -252,14 +250,17 @@ Jev means the configured `typesafe/jev-*` typed decision models.
 | --- | --- | --- | --- |
 | `model` inference plugin | Yes | Yes | Routes Jev to typed target choices and chat models to JSON signal generation. |
 | `risk_first`, `market_structure` skills | Yes, via `model` | Yes, via `model` | Add supplemental prompt guidance. |
-| `none`, `fibonacci`, `price_change` preprocessors | Model-agnostic | Model-agnostic | `none` adds no derived features; `fibonacci` generates retracement levels; `price_change` generates fixed percentage levels. Jev's current typed target workflow uses Fibonacci, not price-change choices. |
+| `none` preprocessor | Yes (baseline) | Yes (baseline) | Adds no derived features; leaves the normalized market input unchanged. |
+| `fibonacci` preprocessor | Yes (target choices) | Yes (feature context) | Provides retracement levels. Required by Jev's current typed target-selection workflow; chat models can use the levels as context. |
+| `price_change` preprocessor | Feature output only | Yes (feature context) | Provides fixed percentage-change levels. The current Jev adapter does not expose these levels as typed target choices. |
 | `prompts/genai_default_trading.txt` | No | Yes | Default chat-model JSON signal prompt; loaded automatically unless a custom prompt is selected. |
 | `prompts/fibonacci_decision.txt` | No | Yes | Chat-model JSON signal prompt with Fibonacci target rules. |
 | `prompts/fibonacci_jev_decision.txt`, `prompts/fibonacci_jev_backup_decision.txt` | Yes | No | Jev typed-choice prompts for Fibonacci target selection. |
 
 The **Skills & Plugins** dashboard catalog shows these compatibility labels on
 each extension card. A preprocessor being model-agnostic means it can run
-independently of a provider; it does not mean every workflow uses its features.
+independently of a provider; it does not guarantee every inference workflow
+consumes its output or exposes those features as typed choices.
 
 ```bash
 python main.py --inference-plugin model --inference-skill risk_first --dry-run

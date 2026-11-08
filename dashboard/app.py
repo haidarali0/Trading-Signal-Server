@@ -21,6 +21,10 @@ from pathlib import Path as _Path_for_root
 _ROOT = _Path_for_root(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+from plugins.preprocessor_registry import BUILTIN_PREPROCESSORS
+from plugins.registry import BUILTIN_PLUGINS
+from plugins.selection import format_extension_selection
+from skills import available_skills, load_skill_instructions
 from config import (
     DEFAULT_SYMBOLS,
     DEFAULT_INTERVAL,
@@ -195,10 +199,81 @@ def has_openrouter_key() -> bool:
     return bool(values.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY"))
 
 
+def has_typesafe_key() -> bool:
+    values = read_env_values()
+    return bool(values.get("TYPESAFE_API_KEY") or os.getenv("TYPESAFE_API_KEY"))
+
+
+def extension_catalog() -> list[dict]:
+    """Describe installed built-in plugins and available prompt skills for the dashboard."""
+    catalog = []
+    inference_compatibility = {
+        "model": "Jev via TypeSafe/OpenRouter decisions; GenAI/chat via OpenRouter",
+    }
+    preprocessor_compatibility = (
+        "Model-agnostic features; Jev/GenAI consume them only when their inference "
+        "workflow supports the feature"
+    )
+    skill_compatibility = (
+        "Model inference plugin only; applies to Jev and GenAI/chat models"
+    )
+    documentation_root = ROOT / "plugins" / "docs"
+    plugin_groups = (
+        ("inference", BUILTIN_PLUGINS, documentation_root / "inference"),
+        ("preprocessor", BUILTIN_PREPROCESSORS, documentation_root / "preprocessors"),
+    )
+    for kind, plugins, docs_root in plugin_groups:
+        for name, (module_name, class_name) in plugins.items():
+            module = __import__(module_name, fromlist=[class_name])
+            plugin_type = getattr(module, class_name)
+            readme_path = docs_root / name / "README.md"
+            readme = readme_path.read_text(encoding="utf-8") if readme_path.is_file() else ""
+            catalog.append({
+                "kind": kind,
+                "name": name,
+                "description": (plugin_type.__doc__ or "").strip(),
+                "compatibility": (
+                    inference_compatibility.get(name, "Custom/plugin-defined compatibility")
+                    if kind == "inference"
+                    else preprocessor_compatibility
+                ),
+                "readme": readme,
+            })
+
+    skills_root = ROOT / "skills"
+    for name in available_skills():
+        if name == "default":
+            readme_path = skills_root / "default" / "README.md"
+            description = "General market-analysis guidance: consider supplied context, avoid unsupported assumptions, and follow the selected prompt's output contract."
+        else:
+            skill_dir = skills_root / name
+            readme_path = skill_dir / "README.md"
+            description = "Supplemental instructions for the model inference plugin."
+        readme = readme_path.read_text(encoding="utf-8") if readme_path.is_file() else ""
+        if name != "default" and not readme:
+            description = load_skill_instructions(name).strip()
+        catalog.append({
+            "kind": "skill",
+            "name": name,
+            "description": description,
+            "compatibility": skill_compatibility,
+            "readme": readme,
+        })
+    return catalog
+
+
 def validate_run_payload(payload: dict, mode: str) -> str | None:
-    if not has_openrouter_key():
-        return "OpenRouter API key is required. Add it in Settings first."
+    inference_plugin = str(payload.get("inference_plugin") or "model").strip()
     models = words(payload.get("model_names"))
+    models_for_provider = models or [MODEL_NAME]
+    decision_models = {"typesafe/jev-1.13", "typesafe/jev-1.14"}
+    if inference_plugin == "model":
+        uses_openrouter = (
+            not has_typesafe_key()
+            or any(model.casefold() not in decision_models for model in models_for_provider)
+        )
+        if uses_openrouter and not has_openrouter_key():
+            return "OpenRouter API key is required for the selected models. Add it in Settings first."
     if len(set(models)) != len(models):
         return "Voting models must not contain duplicates."
     iterations = as_int(payload, "iterations", 1)
@@ -326,6 +401,9 @@ def build_live(payload: dict) -> list[str]:
     for old, new in aliases.items():
         if old in payload and new not in payload:
             payload[new] = payload[old]
+    option(command, "--inference-plugin", payload.get("inference_plugin", "model"))
+    option(command, "--inference-skill", payload.get("inference_skill", "default"))
+    option(command, "--preprocessors", payload.get("preprocessors", "none"), True)
     option(command, "--symbols", payload.get("symbols"), True)
     for flag, key in [("--interval", "interval"), ("--limit", "limit"), ("--quant-limit", "quant_limit"), ("--quant-input-data", "quant_input_data"), ("--quant-test-size", "quant_test_size"), ("--quant-model", "quant_model"), ("--quant-target-mode", "quant_target_mode"), ("--quant-direction-threshold", "quant_direction_threshold"), ("--quant-input-set", "quant_input_set"), ("--quant-transform", "quant_transform"), ("--quant-output-target", "quant_output_target"), ("--quant-shift", "quant_shift"), ("--quant-predict-rows", "quant_predict_rows"), ("--web-search-max-results", "web_search_max_results"), ("--confidence-threshold", "confidence_threshold"), ("--gain-ratio-threshold", "gain_ratio_threshold"), ("--iterations", "iterations")]:
         option(command, flag, payload.get(key))
@@ -344,6 +422,9 @@ def build_live(payload: dict) -> list[str]:
 
 def build_backtest(payload: dict) -> list[str]:
     command = [sys.executable, "-m", "backtesting.backtest"]
+    option(command, "--inference-plugin", payload.get("inference_plugin", "model"))
+    option(command, "--inference-skill", payload.get("inference_skill", "default"))
+    option(command, "--preprocessors", payload.get("preprocessors", "none"), True)
     option(command, "--symbols", payload.get("symbols"), True)
     for flag, key in [("--lookback", "lookback"), ("--interval", "interval"), ("--step", "step"), ("--iterations", "iterations"), ("--n", "n"), ("--max-expected-time", "max_expected_time"), ("--token-limit", "token_limit"), ("--input-token-price", "input_token_price"), ("--output-token-price", "output_token_price"), ("--max-cost", "max_cost"), ("--output-dir", "output_dir"), ("--quant-input-data", "quant_input_data"), ("--quant-model", "quant_model"), ("--quant-transform", "quant_transform"), ("--quant-output-target", "quant_output_target"), ("--quant-shift", "quant_shift"), ("--quant-predict-rows", "quant_predict_rows"), ("--quant-target-mode", "quant_target_mode"), ("--quant-direction-threshold", "quant_direction_threshold"), ("--web-search-max-results", "web_search_max_results")]:
         option(command, flag, payload.get(key))
@@ -391,7 +472,18 @@ def launch(payload: dict, mode: str):
             "total_progress_seen": False,
         })
         threading.Thread(target=consume, args=(process,), daemon=True).start()
-    return True, f"{mode.title()} started. Follow every step in the execution console."
+    selected_extensions = format_extension_selection(
+        str(payload.get("inference_plugin") or "model").strip(),
+        str(payload.get("inference_skill") or "default").strip(),
+        words(payload.get("preprocessors")) or ["none"],
+        prompt_files=words(payload.get("prompt_files")),
+        model_names=words(payload.get("model_names")),
+        direct_typesafe_available=has_typesafe_key(),
+    )
+    return True, (
+        f"{mode.title()} started. {selected_extensions}. "
+        "Follow every step in the execution console."
+    )
 
 
 def live_backtest_metrics(output: list[str]) -> dict:
@@ -698,6 +790,8 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/prompt-files":
             names = list_prompt_files()
             return self.send_json({"files": names})
+        if path == "/api/extensions":
+            return self.send_json({"extensions": extension_catalog()})
         if path == "/api/prompt-file":
             params = parse_qs(urlparse(self.path).query)
             name = params.get("name", [""])[0]
@@ -721,6 +815,9 @@ class Handler(SimpleHTTPRequestHandler):
                 "gain_ratio_threshold": GAIN_RATIO_THRESHOLD,
                 "model_names": [MODEL_NAME],
                 "prompt_files": [],
+                "inference_plugin": "model",
+                "inference_skill": "default",
+                "preprocessors": ["none"],
                 "quant_limit": DEFAULT_LIMIT,
                 "quant_test_size": 0.2,
                 "quant_input_data": "both",
@@ -752,6 +849,7 @@ class Handler(SimpleHTTPRequestHandler):
             values = read_env_values()
             return self.send_json({
                 "openrouter_api_key": values.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", "")),
+                "typesafe_api_key": values.get("TYPESAFE_API_KEY", os.getenv("TYPESAFE_API_KEY", "")),
                 "telegram_bot_token": values.get("TELEGRAM_BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "")),
                 "telegram_chat_id": values.get("TELEGRAM_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID", "")),
             })
@@ -793,6 +891,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/settings":
             save_env_values({
                 "OPENROUTER_API_KEY": str(payload.get("openrouter_api_key", "")).strip(),
+                "TYPESAFE_API_KEY": str(payload.get("typesafe_api_key", "")).strip(),
                 "TELEGRAM_BOT_TOKEN": str(payload.get("telegram_bot_token", "")).strip(),
                 "TELEGRAM_CHAT_ID": str(payload.get("telegram_chat_id", "")).strip(),
             })

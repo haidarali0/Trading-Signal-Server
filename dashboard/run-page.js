@@ -1,6 +1,12 @@
 const $ = (selector) => document.querySelector(selector);
 
-document.querySelector("form").addEventListener("submit", async (event) => {
+const runForm = document.querySelector("form");
+runForm.querySelector(".form-grid")?.insertAdjacentHTML(
+  "afterbegin",
+  '<label>Inference plugin <input data-option="inference_plugin" value="model" placeholder="model or module.path:ClassName"></label><label>Inference skill <input data-option="inference_skill" value="default" placeholder="default or a skills/*.txt name"></label><label>Preprocessors <input data-option="preprocessors" value="none" placeholder="none, fibonacci"></label><p class="subtitle">The model inference plugin supports Jev decision models and GenAI/chat models through the configured provider workflows.</p>'
+);
+
+runForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const fields = [...document.querySelectorAll("[data-option]")];
   const payload = Object.fromEntries(fields.map((field) => [field.dataset.option, field.type === "checkbox" ? field.checked : field.value]));

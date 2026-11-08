@@ -12,11 +12,47 @@ def send_telegram_message(msg: str, image_path: str = "cache/chart.png") -> None
     with open(image_path, "rb") as img:
         payload = {"chat_id": CHAT_ID, "caption": msg, "parse_mode": "HTML"}
         files = {"photo": img}
-        response = requests.post(url, data=payload, files=files, timeout=10)
-        if response.status_code == 200:
-            print("📸 Chart sent to Telegram.")
-        else:
-            print("✖ Telegram error:", response.text)
+        try:
+            response = requests.post(url, data=payload, files=files, timeout=10)
+        except requests.RequestException as exc:
+            raise RuntimeError(
+                "[Telegram] Could not connect to the Telegram API. "
+                "Check your internet connection and Telegram service status."
+            ) from exc
+        if response.status_code != 200:
+            try:
+                body = response.json()
+                details = (
+                    body.get("description", response.text)
+                    if isinstance(body, dict)
+                    else response.text
+                )
+            except ValueError:
+                details = response.text
+            raise RuntimeError(
+                f"[Telegram] API request failed (HTTP {response.status_code}). "
+                "Check TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, and the bot's access "
+                f"to the chat. Details: {details}"
+            )
+        try:
+            result = response.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                "[Telegram] The API returned an unreadable response. "
+                "Check Telegram service status."
+            ) from exc
+        if not isinstance(result, dict):
+            raise RuntimeError(
+                "[Telegram] The API returned an unexpected response. "
+                "Check Telegram service status."
+            )
+        if not result.get("ok"):
+            raise RuntimeError(
+                "[Telegram] The API rejected the message. Check TELEGRAM_BOT_TOKEN, "
+                "TELEGRAM_CHAT_ID, and the bot's access to the chat. "
+                f"Details: {result.get('description', 'No error details provided.')}"
+            )
+        print("📸 Chart sent to Telegram.")
 
 
 

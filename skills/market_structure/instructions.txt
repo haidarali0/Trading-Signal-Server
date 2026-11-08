@@ -1,0 +1,8 @@
+Evaluate price structure before interpreting individual indicators. Identify the
+visible range, the current price's location, and whether a move beyond a range
+has follow-through or is rejected. Distinguish a confirmed close outside the
+range from an intrabar wick when the data permits. Treat trend, volume, order
+flow, and volatility as evidence only when they are present in the input. Avoid
+assuming every breakout continues or every boundary causes a reversal. If the
+structure is mixed, late, or unsupported by the supplied candles, choose
+no_trade. Never invent swing points or market context.

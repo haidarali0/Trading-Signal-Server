@@ -1,0 +1,716 @@
+[
+  {
+    "name": "LIVE",
+    "symbols": "BTCUSDT",
+    "interval": "1h",
+    "limit": "400",
+    "inference_plugin": "model",
+    "inference_skill": "default",
+    "preprocessors": "fibonacci",
+    "model_names": "qwen/qwen3-235b-a22b-2507",
+    "prompt_files": "prompts/fibonacci_decision.txt",
+    "prompt": "prompts/fibonacci_decision.txt",
+    "iterations": "2",
+    "confidence": "",
+    "gain_ratio": "",
+    "higher_timeframes": "4h",
+    "indicators": "EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap",
+    "quant_enabled": false,
+    "web_search_enabled": false,
+    "dry_run": false,
+    "created_at": "2026-11-07T21:32:24.358Z",
+    "last_test_result": {
+      "symbol": "BTCUSDT",
+      "trades": 32,
+      "total_trades": 32,
+      "success_rate": 0.39285714285714285,
+      "win_rate": 0.39285714285714285,
+      "total_return": 0.2986919258798405,
+      "avg_return_per_trade": 0.010667568781422875,
+      "buy_and_hold_return": -8.25411714846949,
+      "outperformance": 8.55280907434933,
+      "max_drawdown": 1.348016517838944,
+      "profit_factor": 1.10269557270985,
+      "avg_win": 0.29156454237494,
+      "avg_loss": -0.20775128858889289,
+      "average_trade_duration": 6.5,
+      "total_tokens": 1526743,
+      "input_tokens": 1515562,
+      "output_tokens": 11181,
+      "total_cost": 0,
+      "agreement_ratio": 0.9696969696969697,
+      "agreed_windows": 32,
+      "disagreed_windows": 1,
+      "no_trade_windows": 0,
+      "direction_accuracy": 0.44,
+      "confidence_calibration_error": 0.4979999999999999,
+      "decision_stability": 0.9869631180357065,
+      "actual_start": "2026-10-22 06:00:00",
+      "actual_end": "2026-11-07 21:00:00",
+      "requested_lookback": 400,
+      "candle_range": "2026-10-22 06:00:00 \u2192 2026-11-07 21:00:00",
+      "business_metrics": {
+        "win_rate": 0.39285714285714285,
+        "profit_factor": 1.10269557270985,
+        "avg_win": 0.29156454237494,
+        "avg_loss": -0.20775128858889289,
+        "average_trade_duration": 6.5,
+        "max_drawdown": 1.348016517838944,
+        "total_return": 0.2986919258798405
+      },
+      "llm_consensus": {
+        "agreed_windows": 32,
+        "disagreed_windows": 1,
+        "no_trade_windows": 0,
+        "agreement_ratio": 0.9696969696969697
+      },
+      "llm_performance": {
+        "agreement_ratio": 0.9696969696969697,
+        "direction_accuracy": 0.44,
+        "confidence_calibration_error": 0.4979999999999999,
+        "decision_stability": 0.9869631180357065
+      },
+      "model_brier_scores": {
+        "qwen/qwen3-235b-a22b-2507": {
+          "brier_score": 0.25704677419354843,
+          "scored_windows": 31,
+          "excluded_no_trade": 0,
+          "excluded_ambiguous": 6,
+          "excluded_unresolved": 0,
+          "excluded_missing_probability": 0
+        }
+      },
+      "inference_latency_by_model": {
+        "qwen/qwen3-235b-a22b-2507": {
+          "request_count": 66,
+          "mean_seconds": 13.35359523787889,
+          "median_seconds": 11.12291164999624,
+          "p95_seconds": 23.314637200004654
+        }
+      },
+      "llm_models": [
+        "qwen/qwen3-235b-a22b-2507"
+      ],
+      "saved_at": "2026-11-07T21:32:24.358Z"
+    },
+    "test_results": [
+      {
+        "symbol": "BTCUSDT",
+        "trades": 32,
+        "total_trades": 32,
+        "success_rate": 0.39285714285714285,
+        "win_rate": 0.39285714285714285,
+        "total_return": 0.2986919258798405,
+        "avg_return_per_trade": 0.010667568781422875,
+        "buy_and_hold_return": -8.25411714846949,
+        "outperformance": 8.55280907434933,
+        "max_drawdown": 1.348016517838944,
+        "profit_factor": 1.10269557270985,
+        "avg_win": 0.29156454237494,
+        "avg_loss": -0.20775128858889289,
+        "average_trade_duration": 6.5,
+        "total_tokens": 1526743,
+        "input_tokens": 1515562,
+        "output_tokens": 11181,
+        "total_cost": 0,
+        "agreement_ratio": 0.9696969696969697,
+        "agreed_windows": 32,
+        "disagreed_windows": 1,
+        "no_trade_windows": 0,
+        "direction_accuracy": 0.44,
+        "confidence_calibration_error": 0.4979999999999999,
+        "decision_stability": 0.9869631180357065,
+        "actual_start": "2026-10-22 06:00:00",
+        "actual_end": "2026-11-07 21:00:00",
+        "requested_lookback": 400,
+        "candle_range": "2026-10-22 06:00:00 \u2192 2026-11-07 21:00:00",
+        "business_metrics": {
+          "win_rate": 0.39285714285714285,
+          "profit_factor": 1.10269557270985,
+          "avg_win": 0.29156454237494,
+          "avg_loss": -0.20775128858889289,
+          "average_trade_duration": 6.5,
+          "max_drawdown": 1.348016517838944,
+          "total_return": 0.2986919258798405
+        },
+        "llm_consensus": {
+          "agreed_windows": 32,
+          "disagreed_windows": 1,
+          "no_trade_windows": 0,
+          "agreement_ratio": 0.9696969696969697
+        },
+        "llm_performance": {
+          "agreement_ratio": 0.9696969696969697,
+          "direction_accuracy": 0.44,
+          "confidence_calibration_error": 0.4979999999999999,
+          "decision_stability": 0.9869631180357065
+        },
+        "model_brier_scores": {
+          "qwen/qwen3-235b-a22b-2507": {
+            "brier_score": 0.25704677419354843,
+            "scored_windows": 31,
+            "excluded_no_trade": 0,
+            "excluded_ambiguous": 6,
+            "excluded_unresolved": 0,
+            "excluded_missing_probability": 0
+          }
+        },
+        "inference_latency_by_model": {
+          "qwen/qwen3-235b-a22b-2507": {
+            "request_count": 66,
+            "mean_seconds": 13.35359523787889,
+            "median_seconds": 11.12291164999624,
+            "p95_seconds": 23.314637200004654
+          }
+        },
+        "llm_models": [
+          "qwen/qwen3-235b-a22b-2507"
+        ],
+        "saved_at": "2026-11-07T21:32:24.358Z"
+      }
+    ]
+  },
+  {
+    "name": "LIVE",
+    "symbols": "BTCUSDT",
+    "interval": "1h",
+    "limit": "400",
+    "inference_plugin": "model",
+    "inference_skill": "default",
+    "preprocessors": "fibonacci",
+    "model_names": "openai/gpt-6-luna",
+    "prompt_files": "prompts/fibonacci_decision.txt",
+    "prompt": "prompts/fibonacci_decision.txt",
+    "iterations": "2",
+    "confidence": "",
+    "gain_ratio": "",
+    "higher_timeframes": "4h",
+    "indicators": "EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap",
+    "quant_enabled": false,
+    "web_search_enabled": false,
+    "dry_run": false,
+    "created_at": "2026-11-07T21:56:34.354Z",
+    "last_test_result": {
+      "symbol": "BTCUSDT",
+      "trades": 22,
+      "total_trades": 22,
+      "success_rate": 0.55,
+      "win_rate": 0.55,
+      "total_return": 1.0104852710966006,
+      "avg_return_per_trade": 0.05052426355483003,
+      "buy_and_hold_return": -8.332803986250232,
+      "outperformance": 9.343289257346832,
+      "max_drawdown": 0.8643898652832304,
+      "profit_factor": 1.5059293275501993,
+      "avg_win": 0.27343369948352314,
+      "avg_loss": -0.24966067790276936,
+      "average_trade_duration": 10.2,
+      "total_tokens": 1093009,
+      "input_tokens": 1052880,
+      "output_tokens": 40129,
+      "total_cost": 0,
+      "agreement_ratio": 0.6285714285714286,
+      "agreed_windows": 22,
+      "disagreed_windows": 13,
+      "no_trade_windows": 0,
+      "direction_accuracy": 0.5789473684210527,
+      "confidence_calibration_error": 0.46473684210526317,
+      "decision_stability": 0.9075294237714114,
+      "actual_start": "2026-10-22 06:00:00",
+      "actual_end": "2026-11-07 21:00:00",
+      "requested_lookback": 400,
+      "candle_range": "2026-10-22 06:00:00 \u2192 2026-11-07 21:00:00",
+      "business_metrics": {
+        "win_rate": 0.55,
+        "profit_factor": 1.5059293275501993,
+        "avg_win": 0.27343369948352314,
+        "avg_loss": -0.24966067790276936,
+        "average_trade_duration": 10.2,
+        "max_drawdown": 0.8643898652832304,
+        "total_return": 1.0104852710966006
+      },
+      "llm_consensus": {
+        "agreed_windows": 22,
+        "disagreed_windows": 13,
+        "no_trade_windows": 0,
+        "agreement_ratio": 0.6285714285714286
+      },
+      "llm_performance": {
+        "agreement_ratio": 0.6285714285714286,
+        "direction_accuracy": 0.5789473684210527,
+        "confidence_calibration_error": 0.46473684210526317,
+        "decision_stability": 0.9075294237714114
+      },
+      "model_brier_scores": {
+        "openai/gpt-6-luna": {
+          "brier_score": 0.21432500000000007,
+          "scored_windows": 32,
+          "excluded_no_trade": 0,
+          "excluded_ambiguous": 6,
+          "excluded_unresolved": 0,
+          "excluded_missing_probability": 0
+        }
+      },
+      "inference_latency_by_model": {
+        "openai/gpt-6-luna": {
+          "request_count": 70,
+          "mean_seconds": 12.349619890000032,
+          "median_seconds": 11.26128769999923,
+          "p95_seconds": 18.842564400008996
+        }
+      },
+      "llm_models": [
+        "openai/gpt-6-luna"
+      ],
+      "saved_at": "2026-11-07T21:56:34.354Z"
+    },
+    "test_results": [
+      {
+        "symbol": "BTCUSDT",
+        "trades": 22,
+        "total_trades": 22,
+        "success_rate": 0.55,
+        "win_rate": 0.55,
+        "total_return": 1.0104852710966006,
+        "avg_return_per_trade": 0.05052426355483003,
+        "buy_and_hold_return": -8.332803986250232,
+        "outperformance": 9.343289257346832,
+        "max_drawdown": 0.8643898652832304,
+        "profit_factor": 1.5059293275501993,
+        "avg_win": 0.27343369948352314,
+        "avg_loss": -0.24966067790276936,
+        "average_trade_duration": 10.2,
+        "total_tokens": 1093009,
+        "input_tokens": 1052880,
+        "output_tokens": 40129,
+        "total_cost": 0,
+        "agreement_ratio": 0.6285714285714286,
+        "agreed_windows": 22,
+        "disagreed_windows": 13,
+        "no_trade_windows": 0,
+        "direction_accuracy": 0.5789473684210527,
+        "confidence_calibration_error": 0.46473684210526317,
+        "decision_stability": 0.9075294237714114,
+        "actual_start": "2026-10-22 06:00:00",
+        "actual_end": "2026-11-07 21:00:00",
+        "requested_lookback": 400,
+        "candle_range": "2026-10-22 06:00:00 \u2192 2026-11-07 21:00:00",
+        "business_metrics": {
+          "win_rate": 0.55,
+          "profit_factor": 1.5059293275501993,
+          "avg_win": 0.27343369948352314,
+          "avg_loss": -0.24966067790276936,
+          "average_trade_duration": 10.2,
+          "max_drawdown": 0.8643898652832304,
+          "total_return": 1.0104852710966006
+        },
+        "llm_consensus": {
+          "agreed_windows": 22,
+          "disagreed_windows": 13,
+          "no_trade_windows": 0,
+          "agreement_ratio": 0.6285714285714286
+        },
+        "llm_performance": {
+          "agreement_ratio": 0.6285714285714286,
+          "direction_accuracy": 0.5789473684210527,
+          "confidence_calibration_error": 0.46473684210526317,
+          "decision_stability": 0.9075294237714114
+        },
+        "model_brier_scores": {
+          "openai/gpt-6-luna": {
+            "brier_score": 0.21432500000000007,
+            "scored_windows": 32,
+            "excluded_no_trade": 0,
+            "excluded_ambiguous": 6,
+            "excluded_unresolved": 0,
+            "excluded_missing_probability": 0
+          }
+        },
+        "inference_latency_by_model": {
+          "openai/gpt-6-luna": {
+            "request_count": 70,
+            "mean_seconds": 12.349619890000032,
+            "median_seconds": 11.26128769999923,
+            "p95_seconds": 18.842564400008996
+          }
+        },
+        "llm_models": [
+          "openai/gpt-6-luna"
+        ],
+        "saved_at": "2026-11-07T21:56:34.354Z"
+      }
+    ]
+  },
+  {
+    "name": "LIVE",
+    "symbols": "BTCUSDT",
+    "interval": "1h",
+    "limit": "400",
+    "inference_plugin": "model",
+    "inference_skill": "default",
+    "preprocessors": "fibonacci",
+    "model_names": "typesafe/jev-1.14",
+    "prompt_files": "prompts/fibonacci_jev_decision.txt",
+    "prompt": "prompts/fibonacci_jev_decision.txt",
+    "iterations": "2",
+    "confidence": "",
+    "gain_ratio": "",
+    "higher_timeframes": "4h",
+    "indicators": "EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap",
+    "quant_enabled": false,
+    "web_search_enabled": false,
+    "dry_run": false,
+    "created_at": "2026-11-07T22:10:03.400Z",
+    "last_test_result": {
+      "symbol": "BTCUSDT",
+      "trades": 31,
+      "total_trades": 31,
+      "success_rate": 0.6296296296296297,
+      "win_rate": 0.6296296296296297,
+      "total_return": 0.1367830701456355,
+      "avg_return_per_trade": 0.005066039635023538,
+      "buy_and_hold_return": -8.19691129613744,
+      "outperformance": 8.333694366283076,
+      "max_drawdown": 1.210714926593095,
+      "profit_factor": 1.0448039271752891,
+      "avg_win": 0.18762994001177252,
+      "avg_loss": -0.33921399000605534,
+      "average_trade_duration": 12,
+      "total_tokens": 1534862,
+      "input_tokens": 1527886,
+      "output_tokens": 6976,
+      "total_cost": 0,
+      "agreement_ratio": 0.96875,
+      "agreed_windows": 31,
+      "disagreed_windows": 1,
+      "no_trade_windows": 0,
+      "direction_accuracy": 0.6538461538461539,
+      "confidence_calibration_error": 0.5126923076923077,
+      "decision_stability": 0.9911087992638156,
+      "actual_start": "2026-10-22 06:00:00",
+      "actual_end": "2026-11-07 21:00:00",
+      "requested_lookback": 400,
+      "candle_range": "2026-10-22 06:00:00 \u2192 2026-11-07 21:00:00",
+      "business_metrics": {
+        "win_rate": 0.6296296296296297,
+        "profit_factor": 1.0448039271752891,
+        "avg_win": 0.18762994001177252,
+        "avg_loss": -0.33921399000605534,
+        "average_trade_duration": 12,
+        "max_drawdown": 1.210714926593095,
+        "total_return": 0.1367830701456355
+      },
+      "llm_consensus": {
+        "agreed_windows": 31,
+        "disagreed_windows": 1,
+        "no_trade_windows": 0,
+        "agreement_ratio": 0.96875
+      },
+      "llm_performance": {
+        "agreement_ratio": 0.96875,
+        "direction_accuracy": 0.6538461538461539,
+        "confidence_calibration_error": 0.5126923076923077,
+        "decision_stability": 0.9911087992638156
+      },
+      "model_brier_scores": {
+        "typesafe/jev-1.14": {
+          "brier_score": 0.26289642857142853,
+          "scored_windows": 28,
+          "excluded_no_trade": 0,
+          "excluded_ambiguous": 8,
+          "excluded_unresolved": 0,
+          "excluded_missing_probability": 0
+        }
+      },
+      "inference_latency_by_model": {
+        "typesafe/jev-1.14": {
+          "request_count": 64,
+          "mean_seconds": 2.2115506093755357,
+          "median_seconds": 2.0929488000037964,
+          "p95_seconds": 3.0371369999920717
+        }
+      },
+      "llm_models": [
+        "typesafe/jev-1.14"
+      ],
+      "saved_at": "2026-11-07T22:10:03.400Z"
+    },
+    "test_results": [
+      {
+        "symbol": "BTCUSDT",
+        "trades": 31,
+        "total_trades": 31,
+        "success_rate": 0.6296296296296297,
+        "win_rate": 0.6296296296296297,
+        "total_return": 0.1367830701456355,
+        "avg_return_per_trade": 0.005066039635023538,
+        "buy_and_hold_return": -8.19691129613744,
+        "outperformance": 8.333694366283076,
+        "max_drawdown": 1.210714926593095,
+        "profit_factor": 1.0448039271752891,
+        "avg_win": 0.18762994001177252,
+        "avg_loss": -0.33921399000605534,
+        "average_trade_duration": 12,
+        "total_tokens": 1534862,
+        "input_tokens": 1527886,
+        "output_tokens": 6976,
+        "total_cost": 0,
+        "agreement_ratio": 0.96875,
+        "agreed_windows": 31,
+        "disagreed_windows": 1,
+        "no_trade_windows": 0,
+        "direction_accuracy": 0.6538461538461539,
+        "confidence_calibration_error": 0.5126923076923077,
+        "decision_stability": 0.9911087992638156,
+        "actual_start": "2026-10-22 06:00:00",
+        "actual_end": "2026-11-07 21:00:00",
+        "requested_lookback": 400,
+        "candle_range": "2026-10-22 06:00:00 \u2192 2026-11-07 21:00:00",
+        "business_metrics": {
+          "win_rate": 0.6296296296296297,
+          "profit_factor": 1.0448039271752891,
+          "avg_win": 0.18762994001177252,
+          "avg_loss": -0.33921399000605534,
+          "average_trade_duration": 12,
+          "max_drawdown": 1.210714926593095,
+          "total_return": 0.1367830701456355
+        },
+        "llm_consensus": {
+          "agreed_windows": 31,
+          "disagreed_windows": 1,
+          "no_trade_windows": 0,
+          "agreement_ratio": 0.96875
+        },
+        "llm_performance": {
+          "agreement_ratio": 0.96875,
+          "direction_accuracy": 0.6538461538461539,
+          "confidence_calibration_error": 0.5126923076923077,
+          "decision_stability": 0.9911087992638156
+        },
+        "model_brier_scores": {
+          "typesafe/jev-1.14": {
+            "brier_score": 0.26289642857142853,
+            "scored_windows": 28,
+            "excluded_no_trade": 0,
+            "excluded_ambiguous": 8,
+            "excluded_unresolved": 0,
+            "excluded_missing_probability": 0
+          }
+        },
+        "inference_latency_by_model": {
+          "typesafe/jev-1.14": {
+            "request_count": 64,
+            "mean_seconds": 2.2115506093755357,
+            "median_seconds": 2.0929488000037964,
+            "p95_seconds": 3.0371369999920717
+          }
+        },
+        "llm_models": [
+          "typesafe/jev-1.14"
+        ],
+        "saved_at": "2026-11-07T22:10:03.400Z"
+      }
+    ]
+  },
+  {
+    "name": "LIVE",
+    "symbols": "BTCUSDT",
+    "interval": "1h",
+    "limit": "400",
+    "inference_plugin": "model",
+    "inference_skill": "default",
+    "preprocessors": "fibonacci",
+    "model_names": "openai/gpt-6-luna, typesafe/jev-1.14",
+    "prompt_files": "prompts/fibonacci_decision.txt, prompts/fibonacci_jev_backup_decision.txt",
+    "prompt": "prompts/fibonacci_decision.txt, prompts/fibonacci_jev_backup_decision.txt",
+    "iterations": "2",
+    "confidence": "",
+    "gain_ratio": "",
+    "higher_timeframes": "4h",
+    "indicators": "EMA20, EMA50, EMA100, EMA200, sma20, sma50, rsi, macd_line, macd_signal, macd_hist, stoch_k, stoch_d, atr, bb_upper, bb_middle, bb_lower, vwap",
+    "quant_enabled": false,
+    "web_search_enabled": false,
+    "dry_run": false,
+    "created_at": "2026-11-07T23:33:08.154Z",
+    "last_test_result": {
+      "symbol": "BTCUSDT",
+      "trades": 24,
+      "total_trades": 24,
+      "success_rate": 0.7727272727272727,
+      "win_rate": 0.7727272727272727,
+      "total_return": 2.691357003138236,
+      "avg_return_per_trade": 0.12233440923355618,
+      "buy_and_hold_return": -7.4504002138252545,
+      "outperformance": 10.14175721696349,
+      "max_drawdown": 0.3157287349951294,
+      "profit_factor": 5.7648906087753105,
+      "avg_win": 0.1915404593620831,
+      "avg_loss": -0.14120770150429426,
+      "average_trade_duration": 10.590909090909092,
+      "total_tokens": 1387123,
+      "input_tokens": 1362262,
+      "output_tokens": 24861,
+      "total_cost": 0,
+      "agreement_ratio": 0.6857142857142857,
+      "agreed_windows": 24,
+      "disagreed_windows": 11,
+      "no_trade_windows": 0,
+      "direction_accuracy": 0.8095238095238095,
+      "confidence_calibration_error": 0.5042857142857144,
+      "decision_stability": 0.8530644369415306,
+      "actual_start": "2026-10-22 08:00:00",
+      "actual_end": "2026-11-07 23:00:00",
+      "requested_lookback": 400,
+      "candle_range": "2026-10-22 08:00:00 \u2192 2026-11-07 23:00:00",
+      "business_metrics": {
+        "win_rate": 0.7727272727272727,
+        "profit_factor": 5.7648906087753105,
+        "avg_win": 0.1915404593620831,
+        "avg_loss": -0.14120770150429426,
+        "average_trade_duration": 10.590909090909092,
+        "max_drawdown": 0.3157287349951294,
+        "total_return": 2.691357003138236
+      },
+      "llm_consensus": {
+        "agreed_windows": 24,
+        "disagreed_windows": 11,
+        "no_trade_windows": 0,
+        "agreement_ratio": 0.6857142857142857
+      },
+      "llm_performance": {
+        "agreement_ratio": 0.6857142857142857,
+        "direction_accuracy": 0.8095238095238095,
+        "confidence_calibration_error": 0.5042857142857144,
+        "decision_stability": 0.8530644369415306
+      },
+      "model_brier_scores": {
+        "openai/gpt-6-luna": {
+          "brier_score": 0.26598235294117645,
+          "scored_windows": 34,
+          "excluded_no_trade": 0,
+          "excluded_ambiguous": 1,
+          "excluded_unresolved": 0,
+          "excluded_missing_probability": 0
+        },
+        "typesafe/jev-1.14": {
+          "brier_score": 0.2667060606060607,
+          "scored_windows": 33,
+          "excluded_no_trade": 0,
+          "excluded_ambiguous": 2,
+          "excluded_unresolved": 0,
+          "excluded_missing_probability": 0
+        }
+      },
+      "inference_latency_by_model": {
+        "openai/gpt-6-luna": {
+          "request_count": 35,
+          "mean_seconds": 10.811446562858016,
+          "median_seconds": 9.921729399997275,
+          "p95_seconds": 16.466678800003137
+        },
+        "typesafe/jev-1.14": {
+          "request_count": 35,
+          "mean_seconds": 2.320318222857064,
+          "median_seconds": 2.316042099992046,
+          "p95_seconds": 3.0516400000051362
+        }
+      },
+      "llm_models": [
+        "openai/gpt-6-luna",
+        "typesafe/jev-1.14"
+      ],
+      "saved_at": "2026-11-07T23:33:08.154Z"
+    },
+    "test_results": [
+      {
+        "symbol": "BTCUSDT",
+        "trades": 24,
+        "total_trades": 24,
+        "success_rate": 0.7727272727272727,
+        "win_rate": 0.7727272727272727,
+        "total_return": 2.691357003138236,
+        "avg_return_per_trade": 0.12233440923355618,
+        "buy_and_hold_return": -7.4504002138252545,
+        "outperformance": 10.14175721696349,
+        "max_drawdown": 0.3157287349951294,
+        "profit_factor": 5.7648906087753105,
+        "avg_win": 0.1915404593620831,
+        "avg_loss": -0.14120770150429426,
+        "average_trade_duration": 10.590909090909092,
+        "total_tokens": 1387123,
+        "input_tokens": 1362262,
+        "output_tokens": 24861,
+        "total_cost": 0,
+        "agreement_ratio": 0.6857142857142857,
+        "agreed_windows": 24,
+        "disagreed_windows": 11,
+        "no_trade_windows": 0,
+        "direction_accuracy": 0.8095238095238095,
+        "confidence_calibration_error": 0.5042857142857144,
+        "decision_stability": 0.8530644369415306,
+        "actual_start": "2026-10-22 08:00:00",
+        "actual_end": "2026-11-07 23:00:00",
+        "requested_lookback": 400,
+        "candle_range": "2026-10-22 08:00:00 \u2192 2026-11-07 23:00:00",
+        "business_metrics": {
+          "win_rate": 0.7727272727272727,
+          "profit_factor": 5.7648906087753105,
+          "avg_win": 0.1915404593620831,
+          "avg_loss": -0.14120770150429426,
+          "average_trade_duration": 10.590909090909092,
+          "max_drawdown": 0.3157287349951294,
+          "total_return": 2.691357003138236
+        },
+        "llm_consensus": {
+          "agreed_windows": 24,
+          "disagreed_windows": 11,
+          "no_trade_windows": 0,
+          "agreement_ratio": 0.6857142857142857
+        },
+        "llm_performance": {
+          "agreement_ratio": 0.6857142857142857,
+          "direction_accuracy": 0.8095238095238095,
+          "confidence_calibration_error": 0.5042857142857144,
+          "decision_stability": 0.8530644369415306
+        },
+        "model_brier_scores": {
+          "openai/gpt-6-luna": {
+            "brier_score": 0.26598235294117645,
+            "scored_windows": 34,
+            "excluded_no_trade": 0,
+            "excluded_ambiguous": 1,
+            "excluded_unresolved": 0,
+            "excluded_missing_probability": 0
+          },
+          "typesafe/jev-1.14": {
+            "brier_score": 0.2667060606060607,
+            "scored_windows": 33,
+            "excluded_no_trade": 0,
+            "excluded_ambiguous": 2,
+            "excluded_unresolved": 0,
+            "excluded_missing_probability": 0
+          }
+        },
+        "inference_latency_by_model": {
+          "openai/gpt-6-luna": {
+            "request_count": 35,
+            "mean_seconds": 10.811446562858016,
+            "median_seconds": 9.921729399997275,
+            "p95_seconds": 16.466678800003137
+          },
+          "typesafe/jev-1.14": {
+            "request_count": 35,
+            "mean_seconds": 2.320318222857064,
+            "median_seconds": 2.316042099992046,
+            "p95_seconds": 3.0516400000051362
+          }
+        },
+        "llm_models": [
+          "openai/gpt-6-luna",
+          "typesafe/jev-1.14"
+        ],
+        "saved_at": "2026-11-07T23:33:08.154Z"
+      }
+    ]
+  }
+]

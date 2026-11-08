@@ -250,6 +250,8 @@ def test_dashboard_defaults_cover_backtest_cli_surface():
         expected = {
             'symbols', 'lookback', 'limit', 'interval', 'step', 'iterations',
             'model_names', 'prompt_files', 'n', 'higher_timeframes', 'indicators',
+            'inference_plugin', 'inference_skill',
+            'preprocessors',
             'max_expected_time', 'token_limit', 'input_token_price', 'output_token_price',
             'max_cost', 'output_dir', 'quant_enabled', 'quant_input_data', 'quant_indicators', 'quant_model',
             'quant_models', 'quant_target_mode', 'quant_direction_threshold',
@@ -260,6 +262,36 @@ def test_dashboard_defaults_cover_backtest_cli_surface():
         missing = sorted(expected - defaults.keys())
         assert not missing, f'Missing dashboard defaults: {missing}'
         assert defaults['lookback'] == defaults['limit']
+        assert defaults['preprocessors'] == ['none']
+    finally:
+        conn.close()
+        stop_server(server)
+
+
+def test_dashboard_settings_store_direct_typesafe_key(tmp_path, monkeypatch):
+    import dashboard.app as dashboard_app
+
+    monkeypatch.setattr(dashboard_app, 'ENV_PATH', tmp_path / '.env')
+    monkeypatch.delenv('TYPESAFE_API_KEY', raising=False)
+    server, port = start_server()
+    conn = HTTPConnection('127.0.0.1', port, timeout=5)
+    try:
+        body = json.dumps({'typesafe_api_key': 'typesafe-test-key'}).encode()
+        conn.request(
+            'POST',
+            '/api/settings',
+            body=body,
+            headers={'Content-Type': 'application/json'},
+        )
+        response = conn.getresponse()
+        assert response.status == 200
+        response.read()
+        assert 'TYPESAFE_API_KEY=typesafe-test-key' in (tmp_path / '.env').read_text()
+
+        conn.request('GET', '/api/settings')
+        response = conn.getresponse()
+        settings = json.loads(response.read())
+        assert settings['typesafe_api_key'] == 'typesafe-test-key'
     finally:
         conn.close()
         stop_server(server)
@@ -272,6 +304,160 @@ def test_live_run_command_uses_unbuffered_python_output():
     command = dashboard_app.build_live(payload)
 
     assert command[:3] == [dashboard_app.sys.executable, '-u', 'main.py']
+
+
+def test_dashboard_model_plugin_requires_openrouter_key(monkeypatch):
+    import dashboard.app as dashboard_app
+
+    monkeypatch.setattr(dashboard_app, 'has_openrouter_key', lambda: False)
+    payload = {
+        'symbols': 'BTCUSDT',
+        'inference_plugin': 'model',
+        'inference_skill': 'default',
+    }
+
+    assert 'OpenRouter API key is required' in dashboard_app.validate_run_payload(payload, 'live')
+    monkeypatch.setattr(dashboard_app, 'has_openrouter_key', lambda: True)
+    assert dashboard_app.validate_run_payload(payload, 'live') is None
+    live_command = dashboard_app.build_live(payload)
+    backtest_command = dashboard_app.build_backtest(payload)
+    assert live_command[live_command.index('--inference-plugin') + 1] == 'model'
+    assert live_command[live_command.index('--inference-skill') + 1] == 'default'
+    assert backtest_command[backtest_command.index('--inference-plugin') + 1] == 'model'
+    assert backtest_command[backtest_command.index('--inference-skill') + 1] == 'default'
+
+
+def test_dashboard_direct_jev_uses_typesafe_key_automatically(monkeypatch):
+    import dashboard.app as dashboard_app
+
+    monkeypatch.setattr(dashboard_app, 'has_openrouter_key', lambda: False)
+    monkeypatch.setattr(dashboard_app, 'has_typesafe_key', lambda: True)
+    payload = {
+        'symbols': 'BTCUSDT',
+        'inference_plugin': 'model',
+        'model_names': 'typesafe/jev-1.13',
+    }
+
+    assert dashboard_app.validate_run_payload(payload, 'live') is None
+    live_command = dashboard_app.build_live(payload)
+    backtest_command = dashboard_app.build_backtest(payload)
+    for command in (live_command, backtest_command):
+        assert '--jev-provider' not in command
+
+
+def test_dashboard_commands_include_preprocessor_selection():
+    import dashboard.app as dashboard_app
+
+    payload = {
+        'symbols': 'BTCUSDT',
+        'inference_plugin': 'model',
+        'preprocessors': 'fibonacci, none',
+    }
+    live_command = dashboard_app.build_live(payload)
+    backtest_command = dashboard_app.build_backtest(payload)
+    for command in (live_command, backtest_command):
+        index = command.index('--preprocessors')
+        assert command[index + 1:index + 3] == ['fibonacci', 'none']
+
+
+def test_dashboard_launch_message_reports_selected_extensions(monkeypatch):
+    import dashboard.app as dashboard_app
+
+    class DummyProcess:
+        def poll(self):
+            return None
+
+    class DummyThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(dashboard_app, 'RUN', {'process': None})
+    monkeypatch.setattr(dashboard_app.subprocess, 'Popen', lambda *args, **kwargs: DummyProcess())
+    monkeypatch.setattr(dashboard_app.threading, 'Thread', DummyThread)
+    monkeypatch.setattr(dashboard_app, 'set_stop_request', lambda *args: None)
+    monkeypatch.setattr(dashboard_app, 'has_openrouter_key', lambda: True)
+
+    ok, message = dashboard_app.launch({
+        'symbols': ['BTCUSDT'],
+        'inference_plugin': 'model',
+        'inference_skill': 'risk_first',
+        'preprocessors': 'fibonacci, none',
+    }, 'live')
+
+    assert ok is True
+    assert (
+        '[extensions] Inference plugin: model | Inference skill: risk_first | '
+        'Preprocessors: fibonacci, none | Prompt: default | Provider: OpenRouter'
+    ) in message
+
+
+def test_dashboard_launch_message_reports_prompt_and_automatic_jev_provider(monkeypatch):
+    import dashboard.app as dashboard_app
+
+    class DummyProcess:
+        def poll(self):
+            return None
+
+    class DummyThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(dashboard_app, 'RUN', {'process': None})
+    monkeypatch.setattr(dashboard_app.subprocess, 'Popen', lambda *args, **kwargs: DummyProcess())
+    monkeypatch.setattr(dashboard_app.threading, 'Thread', DummyThread)
+    monkeypatch.setattr(dashboard_app, 'set_stop_request', lambda *args: None)
+    monkeypatch.setattr(dashboard_app, 'has_typesafe_key', lambda: True)
+    monkeypatch.setattr(dashboard_app, 'has_openrouter_key', lambda: False)
+
+    ok, message = dashboard_app.launch({
+        'symbols': ['BTCUSDT'],
+        'inference_plugin': 'model',
+        'model_names': 'typesafe/jev-1.13',
+        'prompt_files': 'prompts/fibonacci_decision.txt',
+        'preprocessors': 'fibonacci',
+    }, 'live')
+
+    assert ok is True
+    assert 'Prompt: prompts/fibonacci_decision.txt' in message
+    assert 'Provider: TypeSafe direct API' in message
+
+
+def test_extension_catalog_lists_plugins_and_documented_skills():
+    server, port = start_server()
+    conn = HTTPConnection('127.0.0.1', port, timeout=5)
+    try:
+        conn.request('GET', '/api/extensions')
+        response = conn.getresponse()
+        assert response.status == 200
+        catalog = json.loads(response.read())['extensions']
+        entries = {(item['kind'], item['name']): item for item in catalog}
+
+        assert ('inference', 'model') in entries
+        assert {name for kind, name in entries if kind == 'inference'} == {'model'}
+        assert ('preprocessor', 'fibonacci') in entries
+        assert ('preprocessor', 'price_change') in entries
+        assert {name for kind, name in entries if kind == 'preprocessor'} == {
+            'none', 'fibonacci', 'price_change'
+        }
+        assert ('skill', 'default') in entries
+        assert 'General market-analysis guidance' in entries[('skill', 'default')]['description']
+        assert ('skill', 'risk_first') in entries
+        assert ('skill', 'market_structure') in entries
+        assert ('skill', 'test') not in entries
+        assert 'Jev via TypeSafe/OpenRouter decisions' in entries[('inference', 'model')]['compatibility']
+        assert 'GenAI' in entries[('skill', 'risk_first')]['compatibility']
+        assert 'Model-agnostic' in entries[('preprocessor', 'fibonacci')]['compatibility']
+        assert 'Fibonacci' in entries[('preprocessor', 'fibonacci')]['readme']
+        assert 'price_change' in entries[('preprocessor', 'price_change')]['readme']
+    finally:
+        conn.close()
+        stop_server(server)
 
 
 def test_saved_configs_are_persisted_on_disk(tmp_path, monkeypatch):
@@ -379,7 +565,7 @@ def test_stop_active_process_marks_run_as_stopping_before_exit():
         assert message == 'Stop signal sent.'
         assert dashboard_app.RUN['status'] == 'Stopping'
         assert dashboard_app.RUN['error'] in {None, 'Stopping…'} or 'stopp' in (dashboard_app.RUN['error'] or '').lower()
-        assert 'kill' in process.calls
+        assert process.calls == []
     finally:
         dashboard_app.RUN = original_run
 

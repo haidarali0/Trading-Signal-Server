@@ -140,7 +140,14 @@ celerybeat.pid
 .env
 .workspace
 cache/
+!cache/
+cache/*
+!cache/saved_configs.json
 backtest_results/
+backtest_results/**
+**/backtest_results/
+**/backtest_results/**
+ml_builder/ml_data/dataset.jsonl
 .envrc
 .venv
 env/

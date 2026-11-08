@@ -33,16 +33,16 @@ Unlike a chat model that generates a JSON signal, Jev selects from typed decisio
 
 ### Saved backtest results
 
-The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call.
+The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call. Token columns show the totals recorded for each saved run, not per-call usage.
 
-| Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Qwen alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call |
-| GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call |
-| **Jev 1.14 alone, 2 calls/window** | **63.0%** | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** |
-| GPT-6 Luna + Jev 1.14, 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s |
+| Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency | Total tokens | Output tokens | Agreement |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Qwen alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call | 1,526,743 | 11,181 | 97.0% |
+| GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call | 1,093,009 | 40,129 | 62.9% |
+| **Jev 1.14 alone, 2 calls/window** | **63.0%** | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** | 1,534,862 | **6,976** | **96.9%** |
+| GPT-6 Luna + Jev 1.14, 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s | 1,387,123 | 24,861 | 68.6% |
 
-In these saved tests, Jev's clearest standalone strengths are **speed** and a higher observed win rate than the tested chat models. The GPT + Jev run had the strongest observed ensemble return and win rate, while adding a much faster Jev call instead of a second GPT call. This is promising evidence that Jev can complement GPT; it does not prove that Jev caused the improvement or will outperform on future data. The hybrid result is from the agreement strategy, and its individual model Brier scores do not represent individual strategy returns. Samples are limited, ambiguous outcomes were excluded from Brier, and returns do not include fees or slippage.
+In these saved tests, Jev's clearest standalone strengths are **speed**, a higher observed win rate than the tested chat models, and high repeat-call direction agreement. Jev also used 82.6% fewer output tokens than GPT-6 Luna in these runs, but its recorded total token count was about 40.4% higher; this data does **not** show lower overall token usage. The saved dollar-cost field is zero for all these runs, so a cost reduction cannot be calculated from them. Agreement is repeat-call direction consistency for standalone runs; for GPT + Jev it is the fraction of windows where the two models agreed. The GPT + Jev run had the strongest observed ensemble return and win rate, while adding a much faster Jev call instead of a second GPT call. This is promising evidence that Jev can complement GPT; it does not prove that Jev caused the improvement or will outperform on future data. The hybrid result is from the agreement strategy, and its individual model Brier scores do not represent individual strategy returns. Samples are limited, ambiguous outcomes were excluded from Brier, and returns do not include fees or slippage.
 
 For a stronger comparison, keep the same symbol, interval, candles, horizon, preprocessor, risk rules, and prompt-to-model order. Review each model's Brier score together with its scored/excluded window counts, and review hybrid returns separately from standalone returns.
 
@@ -115,7 +115,7 @@ The dashboard includes:
 
 ### Dashboard Screenshots
 
-The dashboard images in `dash_images/` show the main workflow areas: live controls, test-lab validation, configuration management, and ML data tools.
+The dashboard images in `dash_images/` show the main workflow areas: live controls, test-lab validation, configuration management, ML data tools, and the Skills & Plugins catalog.
 
 ![Live dashboard](dash_images/live_tab.png)
 
@@ -124,6 +124,8 @@ The dashboard images in `dash_images/` show the main workflow areas: live contro
 ![Configuration dashboard](dash_images/configs_tab.png)
 
 ![ML data dashboard](dash_images/data_tab.png)
+
+![Skills and plugins dashboard](dash_images/plugins_tab.png)
 
 ## Easy Start (Google Colab)
 
@@ -156,12 +158,15 @@ Create a `.env` file:
 
 ```env
 OPENROUTER_API_KEY=your_key_here
+# Optional: use the direct TypeSafe API for Jev decision models
+TYPESAFE_API_KEY=your_typesafe_key_here
 MODEL_NAME=qwen/qwen3-235b-a22b-2507
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
 
 `MODEL_NAME` is only the default fallback. You can replace it with any model available through OpenRouter.
+`TYPESAFE_API_KEY` is optional and is only needed to route configured Jev decision models directly through TypeSafe. If it is unset, Jev uses OpenRouter's typed decisions endpoint and `OPENROUTER_API_KEY`; regular chat models continue to use OpenRouter either way. When running Jev and chat models together with direct TypeSafe, both API keys are needed.
 
 ### 3) Launch dashboard
 
@@ -387,12 +392,14 @@ Create `.env` locally. Never commit it or place real values in source code:
 
 ```env
 OPENROUTER_API_KEY=your_key_here
+# Optional: enables direct TypeSafe routing for Jev decision models
+TYPESAFE_API_KEY=your_typesafe_key_here
 MODEL_NAME=qwen/qwen3-235b-a22b-2507
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 ```
 
-`config.py` reads these values with `python-dotenv`. Trading defaults include symbols, candle limits, intervals, higher timeframes, indicators, confidence thresholds, and gain-ratio thresholds. Runtime overrides are available through `main.py` and the dashboard Settings tab.
+`config.py` reads these values with `python-dotenv`. `TYPESAFE_API_KEY` is optional: when configured, Jev decision models use the direct TypeSafe API; otherwise Jev uses OpenRouter's typed decisions endpoint. Regular chat models always use OpenRouter. Trading defaults include symbols, candle limits, intervals, higher timeframes, indicators, confidence thresholds, and gain-ratio thresholds. Runtime overrides are available through `main.py` and the dashboard Settings tab.
 
 ### Comparing and Saving Results
 

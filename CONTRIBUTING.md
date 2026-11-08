@@ -35,6 +35,16 @@ A typical contributor path is:
 3. validate the behavior in both live and backtesting flows
 4. ensure dashboard and CLI usage remain consistent
 
+## Known limitations and suggested priorities
+
+These are useful areas for contributions, roughly in priority order:
+
+1. **Backtest data depth and quality:** backtests currently fetch a single Binance candle batch for each symbol. The default lookback is 400 candles, and the code does not paginate to build longer historical windows. This is a current implementation limit, not a claim that Binance's API has a 400-candle maximum. Improve longer-history ingestion with pagination or a documented local-data option, while respecting API limits and keeping historical windows reproducible.
+2. **Web search and page extraction reliability:** web context depends on parsing search-result HTML and optionally scraping pages through external services or direct requests. Site markup, rate limits, blocked requests, and publication-date detection can make coverage inconsistent. Improve source reliability, extraction, attribution, and graceful failure behavior; do not treat scraped snippets as verified facts.
+3. **Rule-based scoring and decision assumptions:** relevance ranking and some signal/preprocessing behavior use explicit heuristics. Make their assumptions visible, add focused tests and compare them against recorded outcomes before changing thresholds or presenting them as predictive.
+
+When contributing in these areas, prioritize measurable reliability and reproducible evaluation over adding more sources, rules, or complexity.
+
 ## Development setup
 
 ### 1. Clone the repository

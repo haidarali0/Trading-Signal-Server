@@ -32,6 +32,7 @@ Version 2 expands the project with selectable inference and preprocessing plugin
 Unlike a chat model that generates a JSON signal, Jev selects from typed decision options supplied by the compatible inference workflow. In the built-in Fibonacci example, those options are target levels; the application maps the selected level to a direction and applies a consistent stop rule. During backtests, Jev also receives a separate native probability question about whether its selected option reaches its success condition within the shared evaluation horizon. The probability of choosing an option is **not** its trade-success probability.
 
 ### Saved backtest results
+**⚠️ Important Experimental Note: The backtest results below reflect a limited sample (400 candles, 35 test windows) and are provided strictly as an architectural and calibration benchmark, not trading advice. Results exclude exchange fees, slippage, and execution latency, and past test performance does not guarantee future results**
 
 The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call.
 

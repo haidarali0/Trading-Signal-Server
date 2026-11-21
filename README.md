@@ -37,7 +37,7 @@ The following are observed results from this project's saved BTCUSDT, 1-hour, 40
 
 | Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency | Output tokens | Agreement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Qwen alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call | 11,181 | **97.0%** |
+| Qwen3-235B-A22B-2507 (`qwen/qwen3-235b-a22b-2507`) alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call | 11,181 | **97.0%** |
 | GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call | 40,129 | 62.9% |
 | Jev 1.14 alone, 2 calls/window | 63.0% | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** | **6,976** | 96.9% |
 | GPT-6 Luna + Jev 1.14 hybrid (optimized call mix: replaces GPT's second call), 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s | 24,861 | 68.6% |

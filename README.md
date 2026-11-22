@@ -33,7 +33,11 @@ Unlike a chat model that generates a JSON signal, Jev selects from typed decisio
 
 ### Saved backtest results
 
-The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. They are illustrative backtests, not a guarantee of future performance. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call.
+The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call.
+
+Win rate, strategy return, and outperformance versus buy-and-hold are trading-performance metrics. Latency and token use are operational metrics. In this GPT-versus-hybrid sample, the hybrid had higher observed win rate and return alongside lower inference time and token use: these results show gains in both areas, not an efficiency-for-performance trade-off. However, the hybrid's GPT Brier score was worse, so not every metric improved. These limited-sample, simplified backtests are indicative, not realistic performance estimates or proof of future outperformance. Brier measures probability calibration, while agreement measures repeatability.
+
+Recorded candle range for all three standalone runs: **Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00** (1-hour candles; timezone not specified in the saved results).
 
 | Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency | Output tokens | Agreement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -49,6 +53,8 @@ Bold marks only the best value in each metric column (lower is better for Brier,
 
 The optimized call-mix variant replaces the second GPT call in each window with one Jev call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. Both saved runs contain 35 test windows and 70 inference requests: GPT alone makes two GPT requests per window; the hybrid makes one GPT and one Jev request per window. The hybrid run covers a slightly shifted candle range (two candles later at both ends).
 
+Recorded candle ranges (1-hour candles; timezone not specified in the saved results): **GPT alone:** Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00; **GPT + Jev hybrid:** Oct 22, 2026, 08:00 – Nov 7, 2026, 23:00.
+
 | Metric | GPT alone, 2 GPT calls/window | GPT + Jev, 1 call/model/window | Observed difference |
 | --- | ---: | ---: | ---: |
 | Win rate | 55.0% | 77.3% | +22.3 percentage points |
@@ -61,9 +67,7 @@ The optimized call-mix variant replaces the second GPT call in each window with 
 
 ![GPT and Jev hybrid efficiency comparison](dash_images/chart2_hybrid_efficiency_table2.png)
 
-The hybrid did have higher observed win rate and return in this sample, but it does not prove Jev caused the change or will improve future results. Samples are limited, and returns exclude fees and slippage.
-
-In these saved tests, Jev's clearest standalone strengths are speed and high repeat-call direction agreement. The hybrid had the strongest observed ensemble return and win rate, but its GPT Brier score was higher (worse) than GPT alone. The result is promising evidence that Jev may complement GPT, not a guarantee of future performance. Hybrid returns belong to the combined agreement strategy; individual model Brier scores do not represent individual strategy returns. Ambiguous outcomes were excluded from Brier.
+The observed differences do not prove Jev caused the hybrid results or that they will generalize. In these saved tests, Jev's clearest standalone strengths are speed and high repeat-call direction agreement. Hybrid returns belong to the combined agreement strategy; individual model Brier scores do not represent individual strategy returns. Ambiguous outcomes were excluded from Brier.
 
 For a stronger comparison, keep the same symbol, interval, candles, horizon, preprocessor, risk rules, and prompt-to-model order. Review each model's Brier score together with its scored/excluded window counts, and review hybrid returns separately from standalone returns.
 
@@ -386,6 +390,8 @@ The project includes a historical evaluation engine that measures:
 - confidence and direction accuracy
 
 Outputs are saved in `backtest_results/` and include summary JSON/CSV files.
+
+For each symbol, a backtest currently fetches one recent batch of Binance candles (default `--lookback` is 400). It does not currently accept a calendar start/end date or paginate to older history. The test walks through the candles chronologically: each prediction uses only data available at that point, and later candles are used to evaluate its outcome.
 
 Backtest returns currently do not model exchange fees, slippage, or order execution latency. Outcomes are evaluated candle by candle; if one candle crosses both a target and stop-loss, the outcome is marked ambiguous rather than assuming which was hit first.
 

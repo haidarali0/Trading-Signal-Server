@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Status-Active-4CAF50?style=for-the-badge" alt="Status Active" />
 </p>
 
-Crypto market analysis and signal research platform supporting typed Jev decision models and chat-based LLMs, historical backtesting, quantitative context, optional Telegram alerts, and a local dashboard.
+Crypto market analysis and signal research platform supporting typed Jev decision models (TypeSafe calls Jev a System One model) and chat-based LLMs, historical backtesting, quantitative context, optional Telegram alerts, and a local dashboard.
 
 ## Version 2: Model Workflows and Backtest Comparison
 
@@ -40,9 +40,10 @@ The following are observed results from this project's saved BTCUSDT, 1-hour, 40
 | Qwen3-235B-A22B-2507 (`qwen/qwen3-235b-a22b-2507`) alone, 2 calls/window | 39.3% | +0.30% | +8.55 pp | 0.257 (31) | 13.35 s/call | 11,181 | **97.0%** |
 | GPT-6 Luna alone, 2 calls/window | 55.0% | +1.01% | +9.34 pp | **0.214 (32)** | 12.35 s/call | 40,129 | 62.9% |
 | Jev 1.14 alone, 2 calls/window | 63.0% | +0.14% | +8.33 pp | 0.263 (28) | **2.21 s/call** | **6,976** | 96.9% |
-| GPT-6 Luna + Jev 1.14 hybrid (optimized call mix: replaces GPT's second call), 1 call/model/window | **77.3%** | **+2.69%** | **+10.14 pp** | GPT 0.266 (34); Jev 0.267 (33) | GPT 10.81 s; Jev 2.32 s | 24,861 | 68.6% |
 
-Bold marks only the best value in each metric column (lower is better for Brier, latency, and output tokens). Standalone agreement is repeat-call direction consistency; hybrid agreement is the fraction of windows where GPT and Jev agreed, so these agreement figures are not directly comparable.
+![Standalone model benchmark](dash_images/chart1_multimodel_benchmark_table1.png)
+
+Bold marks only the best value in each metric column (lower is better for Brier, latency, and output tokens). Agreement is repeat-call direction consistency for each standalone model.
 
 ### GPT + Jev hybrid compared with GPT alone
 
@@ -57,6 +58,8 @@ The optimized call-mix variant replaces the second GPT call in each window with 
 | Mean inference time per window | 24.70 s (2 GPT calls) | 13.13 s (1 GPT + 1 Jev call) | 11.57 s lower (-46.8%) |
 | Output tokens, all models (full run) | 40,129 | 24,861 | 15,268 fewer (-38.0%); hybrid total includes Jev output |
 | Average output tokens per inference request | 573 per GPT request | 355 averaged across GPT and Jev requests | 218 fewer (-38.0%); hybrid average mixes two models |
+
+![GPT and Jev hybrid efficiency comparison](dash_images/chart2_hybrid_efficiency_table2.png)
 
 The hybrid did have higher observed win rate and return in this sample, but it does not prove Jev caused the change or will improve future results. Samples are limited, and returns exclude fees and slippage.
 

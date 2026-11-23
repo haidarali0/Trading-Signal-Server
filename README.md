@@ -39,7 +39,7 @@ The following are observed results from this project's saved BTCUSDT, 1-hour, 40
 
 Win rate, strategy return, and outperformance versus buy-and-hold are trading-performance metrics. Latency and token use are operational metrics. In this GPT-versus-hybrid sample, the hybrid had higher observed win rate and return alongside lower inference time and token use: these results show gains in both areas, not an efficiency-for-performance trade-off. However, the hybrid's GPT Brier score was worse, so not every metric improved. These limited-sample, simplified backtests are indicative, not realistic performance estimates or proof of future outperformance. Brier measures probability calibration, while agreement measures repeatability.
 
-Recorded candle range for all three standalone runs: **Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00**.
+Recorded candle range (UTC) for all three standalone runs: **Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00**.
 
 | Configuration | Win rate | Strategy return | Outperformance vs. buy-and-hold | Trade-success Brier | Mean inference latency | Output tokens | Agreement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -55,7 +55,7 @@ Bold marks only the best value in each metric column (lower is better for Brier,
 
 The optimized call-mix variant replaces the second GPT-6 Luna call in each window with one Jev 1.14 call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. Both saved runs contain 35 test windows and 70 inference requests: GPT-6 Luna alone makes two GPT requests per window; the hybrid makes one GPT and one Jev request per window. The hybrid run covers a slightly shifted candle range (two candles later at both ends).
 
-Recorded candle ranges: **GPT-6 Luna alone:** Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00; **GPT-6 Luna + Jev 1.14 hybrid:** Oct 22, 2026, 08:00 – Nov 7, 2026, 23:00.
+Recorded candle ranges (UTC): **GPT-6 Luna alone:** Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00; **GPT-6 Luna + Jev 1.14 hybrid:** Oct 22, 2026, 08:00 – Nov 7, 2026, 23:00.
 
 | Metric | GPT-6 Luna alone, 2 GPT calls/window | GPT-6 Luna + Jev 1.14, 1 call/model/window | Observed difference |
 | --- | ---: | ---: | ---: |

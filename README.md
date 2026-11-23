@@ -1,5 +1,7 @@
 # Trading Signal Server v2
 
+[README](README.md) | [FAQ](FAQ.md) | [Contributing](CONTRIBUTING.md) | [MIT License](LICENSE)
+
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/LLM-OpenRouter-6A5CFF?style=for-the-badge" alt="OpenRouter" />
@@ -9,8 +11,6 @@
 </p>
 
 Crypto market analysis and signal research platform supporting typed Jev decision models (TypeSafe calls Jev a System One model) and chat-based LLMs, historical backtesting, quantitative context, optional Telegram alerts, and a local dashboard.
-
-For common questions about the platform and its intended use, see the [FAQ](FAQ.md).
 
 ## Version 2: Model Workflows and Backtest Comparison
 

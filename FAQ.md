@@ -2,7 +2,7 @@
 
 ## What is Trading Signal Server?
 
-Trading Signal Server is a **human-in-the-loop crypto analysis and signal research platform**, not an automated trading bot. It generates analysis and signals, with optional alerts; you review them and decide whether or how to act. It does not place trades for you.
+Trading Signal Server is a **human-in-the-loop crypto analysis and signal research platform**, not an automated trading bot or a standalone AI trading algorithm. It helps you configure supported LLMs, provide them with structured market context, and evaluate their outputs—harnessing their capabilities rather than competing with them. It generates analysis and signals, with optional alerts; you review them and decide whether or how to act. It does not place trades for you.
 
 The platform is intended primarily for **medium- and longer-timeframe research**, not latency-sensitive scalping. Market-data and model-provider requests take time, so it is not designed for second- or subsecond trade execution.
 

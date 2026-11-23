@@ -10,7 +10,7 @@
 
 Crypto market analysis and signal research platform supporting typed Jev decision models (TypeSafe calls Jev a System One model) and chat-based LLMs, historical backtesting, quantitative context, optional Telegram alerts, and a local dashboard.
 
-For common questions about the platform and its intended use, see the [FAQ](docs/FAQ.md).
+For common questions about the platform and its intended use, see the [FAQ](FAQ.md).
 
 ## Version 2: Model Workflows and Backtest Comparison
 
@@ -343,7 +343,7 @@ Trading-Signal-Server/
 ├── config.py
 ├── requirements.txt
 ├── README.md
-├── docs/
+├── FAQ.md
 ├── backtesting/
 ├── crypto_data/
 ├── dashboard/

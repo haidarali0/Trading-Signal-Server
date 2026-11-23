@@ -51,13 +51,13 @@ Recorded candle range for all three standalone runs: **Oct 22, 2026, 06:00 – N
 
 Bold marks only the best value in each metric column (lower is better for Brier, latency, and output tokens). Agreement is repeat-call direction consistency for each standalone model.
 
-### GPT + Jev hybrid compared with GPT alone
+### GPT-6 Luna + Jev 1.14 hybrid compared with GPT-6 Luna alone
 
-The optimized call-mix variant replaces the second GPT call in each window with one Jev call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. Both saved runs contain 35 test windows and 70 inference requests: GPT alone makes two GPT requests per window; the hybrid makes one GPT and one Jev request per window. The hybrid run covers a slightly shifted candle range (two candles later at both ends).
+The optimized call-mix variant replaces the second GPT-6 Luna call in each window with one Jev 1.14 call. It is designed to combine GPT with a faster decision model, but is not a controlled proof of improved overall efficiency. Both saved runs contain 35 test windows and 70 inference requests: GPT-6 Luna alone makes two GPT requests per window; the hybrid makes one GPT and one Jev request per window. The hybrid run covers a slightly shifted candle range (two candles later at both ends).
 
-Recorded candle ranges: **GPT alone:** Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00; **GPT + Jev hybrid:** Oct 22, 2026, 08:00 – Nov 7, 2026, 23:00.
+Recorded candle ranges: **GPT-6 Luna alone:** Oct 22, 2026, 06:00 – Nov 7, 2026, 21:00; **GPT-6 Luna + Jev 1.14 hybrid:** Oct 22, 2026, 08:00 – Nov 7, 2026, 23:00.
 
-| Metric | GPT alone, 2 GPT calls/window | GPT + Jev, 1 call/model/window | Observed difference |
+| Metric | GPT-6 Luna alone, 2 GPT calls/window | GPT-6 Luna + Jev 1.14, 1 call/model/window | Observed difference |
 | --- | ---: | ---: | ---: |
 | Win rate | 55.0% | 77.3% | +22.3 percentage points |
 | Strategy return | +1.01% | +2.69% | +1.68 percentage points |

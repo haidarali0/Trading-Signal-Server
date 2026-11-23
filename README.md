@@ -10,6 +10,8 @@
 
 Crypto market analysis and signal research platform supporting typed Jev decision models (TypeSafe calls Jev a System One model) and chat-based LLMs, historical backtesting, quantitative context, optional Telegram alerts, and a local dashboard.
 
+For common questions about the platform and its intended use, see the [FAQ](docs/FAQ.md).
+
 ## Version 2: Model Workflows and Backtest Comparison
 
 Version 2 expands the project with selectable inference and preprocessing plugins, reusable prompt skills, and per-model backtest metrics. The `model` plugin supports Jev's typed decisions and regular chat-model JSON signals. Jev's decision-model workflow is documented below, using Fibonacci as a built-in example, alongside chat-model use.
@@ -341,6 +343,7 @@ Trading-Signal-Server/
 ├── config.py
 ├── requirements.txt
 ├── README.md
+├── docs/
 ├── backtesting/
 ├── crypto_data/
 ├── dashboard/

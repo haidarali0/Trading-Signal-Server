@@ -445,6 +445,8 @@ python -m backtesting.backtest --symbols BTCUSDT --interval 1h --quant-enabled -
 
 This makes it possible to compare the same market and timeframe across prompt, model, indicator, quant, and threshold configurations without overwriting earlier results.
 
+Saved dashboard configurations in `cache/saved_configs.json` can be loaded from the Configs tab and rerun, preserving the selected setup and making experiments easy to repeat. Under comparable conditions, reruns can provide useful operational-metric comparisons, but exact latency, token usage, and trading results are not guaranteed because market data, model responses, provider conditions, and network load can vary.
+
 ## Automatic Signal Collection and Labeling
 
 Signals are collected automatically in `ml_builder/ml_data/dataset.jsonl`:

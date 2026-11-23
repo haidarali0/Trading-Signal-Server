@@ -11,8 +11,6 @@ It helps with two practical challenges:
 1. **Structuring market context:** It combines candles, indicators, and optional order-flow, news, and quantitative data into a consistent format for model analysis.
 2. **Evaluating model outputs:** Results can vary with models, prompts, and settings. Historical backtests let you compare configurations and explore which performed better in the tested sample.
 
-Backtests are research tools, not guarantees of future performance.
-
 ## How does a backtest work?
 
 Each run fetches the latest K candles from Binance (400 by default); it doesn't use saved candle history. The backtest moves through those candles in order: the model sees the candles available at each point, generates a signal, and later candles are used to evaluate the result.

@@ -35,6 +35,8 @@ Unlike a chat model that generates a JSON signal, Jev selects from typed decisio
 
 ### Saved backtest results
 
+For an interactive view of the benchmark, see the [Trading Signal Benchmark](https://www.eventum.ai/jev-builds/trading-signal-benchmark).
+
 The following are observed results from this project's saved BTCUSDT, 1-hour, 400-candle experiments. The standalone runs share the same reported candle range; the GPT + Jev run starts and ends two candles later. Brier is lower-is-better; its scored-window count is shown in parentheses. Inference latency is average time per call.
 
 Win rate, strategy return, and outperformance versus buy-and-hold are trading-performance metrics. Latency and token use are operational metrics. In this GPT-versus-hybrid sample, the hybrid had higher observed win rate and return alongside lower inference time and token use: these results show gains in both areas, not an efficiency-for-performance trade-off. However, the hybrid's GPT Brier score was worse, so not every metric improved. These limited-sample, simplified backtests are indicative, not realistic performance estimates or proof of future outperformance. Brier measures probability calibration, while agreement measures repeatability.
